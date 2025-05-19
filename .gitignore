@@ -1,0 +1,7 @@
+venv/
+alembic/
+__pycache__/
+alembic.ini
+config.py
+static/img/
+static/fontawesome/

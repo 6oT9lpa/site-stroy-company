@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+    <title>Строительные услуги</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/root.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/login.css') }}">
+</head>
+<body>
+    <main>
+        <div class='contanier'>
+            <div class='header-container'>
+                <h2>Вход в систему</h2>
+            </div>
+            <form id="loginForm">
+                <div class="groupInp">
+                    <label for="username">Имя пользователя</label>
+                    <input class="formInp" name="username" type="text" autocomplete="username">
+                </div>
+                <div class="groupInp">
+                    <label for="password">Пароль пользователя</label>
+                    <input class="formInp" name="password" type="password" autocomplete="current-password">
+                </div>
+                <div class="btn-submit">
+                    <button type="submit">войти в аккаунт</button>
+                </div>
+                <p>у меня заблокирован аккаунт, <a class="rep-block">что делать?</a></p>
+            </form>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='scripts/login.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/root.js') }}"></script>
+</body>
+</html>

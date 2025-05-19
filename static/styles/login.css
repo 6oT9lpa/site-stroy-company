@@ -1,0 +1,107 @@
+main {
+    height: 80vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.contanier {
+    border: 1px solid var(--border-color);
+    background: var(--secondary-bg-color);
+    padding: 10px 20px;
+    min-width: 300px;
+    width: 450px;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    align-items: center;
+    box-shadow: #00000026 0 0 10px 2px;
+    border-radius: 10px;
+}
+
+.header-container h2 {
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--secondary-text-color);
+}
+
+.header-container {
+    width: 100%;
+    position: relative;
+}
+
+.header-container::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    right: 20px;
+    left: 20px;
+    height: .5px;
+    background-color: var(--secondary-text-color);
+}
+
+.groupInp {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+    gap: 5px;
+}
+
+.groupInp label {
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+}
+
+input.formInp {
+    background: var(--primary-bg-color);
+    padding: 8px 10px;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    outline: none;
+}
+
+form#loginForm {
+    display: flex;
+    flex-direction: column;
+}
+
+button[type="submit"] {
+    display: inline-flex;
+    background-color: var(--link-color);
+    padding: 7px;
+    color: white;
+    border-radius: 5px;
+    margin: 1rem auto;
+    width: 286px;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.btn-submit button[type="submit"]:hover {
+    background-color: var(--link-hover);
+}
+
+form#loginForm p {
+    color: var(--primary-text-color);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: end;
+    padding: 5px;
+}
+
+form#loginForm p a{ 
+    color: var(--link-color);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+form#loginForm p a:hover { 
+    color: var(--link-hover);
+    text-decoration:underline;
+}
+
+

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data:;
+    font-src 'self';
+    connect-src 'self';
+    ">
+    <title>Строительные услуги</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/root.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/profile.css') }}">
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="admin-sidebar">
+            <nav class="admin-menu">
+                <a href="#dashboard"><i class="fas fa-tachometer-alt"></i> Главная</a>
+                <a href="#services" class="active"><i class="fas fa-hammer"></i> Услуги</a>
+                <a href="#orders"><i class="fas fa-clipboard-list"></i> Заявки</a>
+                <a href="#users"><i class="fas fa-users-cog"></i> Пользователи</a>
+                <a href="#communications"><i class="fas fa-mail-bulk"></i> Рассылки</a>
+            </nav>
+        </aside>
+        <main>
+            <div class="admin-content" id="services">
+                <div class="services-header">
+                    <h2>Управление услугами</h2>
+                    <div class="search-box">
+                        <input type="text" id="service-search" placeholder="Поиск услуг...">
+                        <button id="add-service-btn">Добавить услугу</button>
+                        <button id="add-question-btn" style='display:none;'> Добавить вопрос </button>
+                        <button class="services-tab" id="questions-tabs" data-tab="questions">Переключить на вопросы</button>
+                        <button class="services-tab active" id="services-tabs" data-tab="services" style="display:none">Переключить на услуги</button>
+                    </div>
+                </div>
+                <div class="services-container">
+                    <aside class="filters-sidebar">
+                        <div class="sidebar-header">
+                            <h3>Фильтры</h3> 
+                            <button id="add-filter-btn">Добавить фильтр</button>
+                        </div>
+                        <ul class="filters-list" id="filters-list">
+                            <!-- Фильтры будут загружаться динамически -->
+                        </ul>
+                    </aside>
+                    <section class="services-section" id="services-section">
+                        <div class="services-list" id="services-list" style="display: grid;">
+                            <!-- Услуги будут загружаться динамически -->
+                        </div>
+                    </section>
+                    <section class="questions-section" id="questions-section" style="display: none;">
+                        <div class="questions-list" id="questions-list">
+                            <!-- Вопросы будут загружаться динамически -->
+                        </div>
+                    </section>
+                </div>
+            </div>
+            <div class="admin-content" id="orders">
+                <div class="requests-header">
+                    <h2>Заявки клиентов</h2>
+                    <div class="search-box">
+                        <input type="text" id="request-search" placeholder="Поиск заявок...">
+                        <select id="status-filter">
+                            <option value="all">Все статусы</option>
+                            <option value="Новая">Новая</option>
+                            <option value="В рассмотрении">В рассмотрении</option>
+                            <option value="В работе">В работе</option>
+                            <option value="Завершена">Завершена</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="recent-requests">
+                    <h3>Заявки за все время</h3>
+                    <div class="requests-table" id="recent-requests-table">
+                        <!-- Таблица будет заполнена динамически -->
+                    </div>
+                </div>
+            </div>
+            <div class="admin-content" id="dashboard" style="display: none;">
+                <h2>Статистика сайта</h2>
+                
+                <div class="stats-grid">
+                    <!-- Карточки статистики -->
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Посетители</h3>
+                            <div class="stat-value" id="visitors-count">0</div>
+                            <div class="stat-change" id="visitors-change">+0% за неделю</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Всего заявок</h3>
+                            <div class="stat-value" id="total-requests">0</div>
+                            <div class="stat-change" id="requests-change">+0% за неделю</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Принятые</h3>
+                            <div class="stat-value" id="completed-requests">0</div>
+                            <div class="stat-percent" id="completed-percent">0%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>В работе</h3>
+                            <div class="stat-value" id="in-progress-requests">0</div>
+                            <div class="stat-percent" id="in-progress-percent">0%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Отклоненные</h3>
+                            <div class="stat-value" id="rejected-requests">0</div>
+                            <div class="stat-percent" id="rejected-percent">0%</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="charts-container">
+                    <div class="chart-card requests-chart">
+                        <h3>Заявки по дням</h3>
+                        <canvas id="requests-chart"></canvas>
+                    </div>
+                    
+                    <div class="chart-card status-chart">
+                        <h3>Статусы заявок</h3>
+                        <canvas id="status-chart" style="height: 250px; width: 400px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-content" id="users" style="display: none;">
+                <div class="users-header">
+                    <h2>Управление пользователями</h2>
+                    <div class="search-box">
+                        <input type="text" id="user-search" placeholder="Поиск пользователей...">
+                        <button id="add-user-btn" class="admin-btn primary">
+                            <i class="fas fa-plus"></i> Добавить пользователя
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="users-table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Имя пользователя</th>
+                                <th>Email</th>
+                                <th>Имя</th>
+                                <th>Фамилия</th>
+                                <th>Роль</th>
+                                <th>Статус</th>
+                                <th>Последняя активность</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-list">
+                            <!-- Пользователи будут загружаться динамически -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="admin-content" id="communications" style="display: none;">
+                <div class="communications-header">
+                    <h2>Рассылки</h2>
+                    <div class="search-box">
+                        <input type="text" id="subscriber-search" placeholder="Поиск подписчиков...">
+                        <button id="send-newsletter-btn" class="admin-btn primary">
+                            <i class="fas fa-paper-plane"></i> Сделать рассылку
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="subscribers-table-container">
+                    <table class="subscribers-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Имя</th>
+                                <th>Телефон</th>
+                                <th>Последняя активность</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subscribers-list">
+                            <!-- Подписчики будут загружаться динамически -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal" id="user-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="user-modal-title">Добавить пользователя</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="user-username">Имя пользователя*</label>
+                    <input type="text" id="user-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="user-email">Email*</label>
+                    <input type="email" id="user-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="user-first-name">Имя</label>
+                    <input type="text" id="user-first-name">
+                </div>
+                <div class="form-group">
+                    <label for="user-last-name">Фамилия</label>
+                    <input type="text" id="user-last-name">
+                </div>
+                <div class="form-group">
+                    <label for="user-role">Роль*</label>
+                    <select id="user-role" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="user-password" id="password-label">Пароль*</label>
+                    <input type="password" id="user-password" required>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="user-active" checked>
+                        <span>Активный</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn">Отмена</button>
+                <button class="save-btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="newsletter-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Новая рассылка</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newsletter-subject">Тема письма*</label>
+                    <input type="text" id="newsletter-subject" required>
+                </div>
+                <div class="form-group">
+                    <label for="newsletter-content">Содержание*</label>
+                    <textarea id="newsletter-content" rows="10" required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn">Отмена</button>
+                <button class="send-btn">Отправить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="question-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="question-modal-title">Добавить вопрос</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="question-filter">Фильтр</label>
+                    <select id="question-filter" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="question-text">Текст вопроса</label>
+                    <input type="text" id="question-text" required>
+                </div>
+                <div class="form-group">
+                    <label for="question-type">Тип ответа</label>
+                    <select id="question-type">
+                        <option value="text">Текстовое поле</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="question-required">
+                        <span>Обязательный вопрос</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn">Отмена</button>
+                <button class="save-btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно с деталями заявки -->
+    <div class="modal" id="request-details-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Детали заявки #<span id="request-id"></span></h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body" id="request-details-body">
+                <!-- Данные будут загружаться динамически -->
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-service-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Добавить услугу</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="service-name">Название услуги</label>
+                    <input type="text" id="service-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="service-description">Описание услуги</label>
+                    <textarea type="text" id="service-description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="service-filter">Фильтр</label>
+                    <select id="service-filter" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="service-cost">Стоимость</label>
+                    <div class="cost-input-container">
+                        <input type="number" id="service-cost" step="0.01" required>
+                        <select id="cost-type" class="cost-type-select">
+                            <option value="руб">руб</option>
+                            <option value="руб/м²">руб/м²</option>
+                            <option value="руб/п.м.">руб/п.м.</option>
+                            <option value="руб/шт">руб/шт</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="service-duration">Срок выполнения</label>
+                    <input type="text" id="service-duration">
+                </div>
+                <div class="form-group">
+                    <label>Материалы</label>
+                    <div class="list-container">
+                        <div id="materials-container">
+                            <!-- Материалы будут добавляться динамически -->
+                        </div>
+                        <button type="button" id="add-material-btn" class="small-btn">
+                            <i class="fas fa-plus"></i> Добавить материал
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Включенные услуги</label>
+                    <div class="list-container">
+                        <div id="included-services-container">
+                            <!-- Включенные услуги будут добавляться динамически -->
+                        </div>
+                        <button type="button" id="add-included-service-btn" class="small-btn">
+                            <i class="fas fa-plus"></i> Добавить услугу
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn">Отмена</button>
+                <button class="save-btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="add-filter-modal">
+        <div class="modal-content">
+        <div class="modal-header">
+            <h3>Добавить фильтр</h3>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="filter-name">Название фильтра</label>
+                <input type="text" id="filter-name" required>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="cancel-btn">Отмена</button>
+            <button class="save-btn">Сохранить</button>
+        </div>
+    </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="{{ url_for('static', filename='scripts/profile.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/root.js') }}"></script>
+</body>
+</html>
