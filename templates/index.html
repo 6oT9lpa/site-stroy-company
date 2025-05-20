@@ -14,10 +14,13 @@
         <div class="logo">
             <img src="{{ url_for('static', filename='img/logo.svg') }}">
         </div>
-        <nav>
+        <button class="menu-toggle" id="menuToggle">
+            <i class="fas fa-bars"></i>
+        </button>
+        <nav id="mainNav">
             <a href='#about'>О нас</a>
             <a href='#services'>Услуги</a>
-            <a href='#calculation'>Расчёт стоимости</a>
+            <a href='#order'>Оформление заказа</a>
             <a href='#contacts'>Контакты</a>
         </nav>
     </header>
@@ -133,18 +136,6 @@
                         </div>
                         
                         <div class="form-group">
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="consent-personal" required>
-                                <span>Я согласен на обработку персональных данных*</span>
-                            </label>
-                            
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="consent-marketing">
-                                <span>Я согласен получать информационные рассылки</span>
-                            </label>
-                        </div>
-                        
-                        <div class="form-group">
                             <label>Какие материалы будут использоваться?</label>
                             <div class="radio-group">
                                 <label class="checkbox-container">
@@ -161,34 +152,85 @@
                                 </label>
                             </div>
                         </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="consent-personal" required>
+                                <span>Я согласен на обработку персональных данных*</span>
+                            </label>
+                            
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="consent-marketing">
+                                <span>Я согласен получать информационные рассылки</span>
+                            </label>
+                        </div>
                         
-                        <button type="submit" class="order-btn">Отправить заявку</button>
+                        <button type="submit" class="btn">Отправить заявку</button>
                     </form>
                 </div>
             </div>
         </section>
 
         <div class="order-sidebar">
-            <div class="order-cart">
+            <!-- Десктопная версия -->
+            <div class="order-cart desktop-cart">
                 <h3>Ваш заказ <span id="cart-count">0</span></h3>
                 <div class="cart-items" id="cart-items">
                     <p class="empty-cart-message">Корзина пуста</p>
                 </div>
-                <button id="proceed-to-order" class="order-btn" style="display: none;">Оформить заказ</button>
+                <button id="proceed-to-order" class="btn">Оформить заказ</button>
+            </div>
+            
+            <!-- Мобильная версия -->
+            <div class="mobile-cart-icon" id="mobileCartIcon">
+                <i class="fas fa-shopping-cart"></i>
+                <span class="cart-badge" id="mobileCartCount">0</span>
             </div>
         </div>
 
-        <footer class='glass-effect' id="contacts">
+        <footer id="contacts">
             <div class="footer-content">
-                <div class="contacts">
-                    <h3>Свяжитесь со мной:</h3>
-                    <p><i class="fas fa-phone"></i> +7 (XXX) XXX-XX-XX</p>
-                    <p><i class="fas fa-envelope"></i> ip-ivanov@example.com</p>
+                <div class="footer-section">
+                    <h3>Контакты</h3>
+                    <div class="contact-item">
+                        <i class="fas fa-phone"></i>
+                        <span>+7 (123) 456-78-90</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-envelope"></i>
+                        <span>info@stroycompany.ru</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>г. Краснодар, ул. Строителей, 15</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-clock"></i>
+                        <span>Пн-Пт: 9:00 - 18:00</span>
+                    </div>
                 </div>
-                <div class="legal">
+
+                <div class="footer-section">
+                    <h3>Социальные сети</h3>
+                    <div class="social-links">
+                        <a href="#" class="social-link"><i class="fab fa-vk"></i> ВКонтакте</a>
+                        <a href="#" class="social-link"><i class="fab fa-telegram"></i> Telegram</a>
+                        <a href="#" class="social-link"><i class="fab fa-youtube"></i> YouTube</a>
+                        <a href="#" class="social-link"><i class="fab fa-instagram"></i> Instagram</a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Реквизиты</h3>
                     <p>ИП Иванов А.С.</p>
-                    <p>ИНН: XXXXXXXXXXXX</p>
-                    <p>ОГРНИП: XXXXXXXXXXXXX</p>
+                    <p>ИНН: 123456789012</p>
+                    <p>ОГРНИП: 123456789012345</p>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <div class="copyright">
+                    &copy; 2025. Все права защищены.
                 </div>
             </div>
         </footer>

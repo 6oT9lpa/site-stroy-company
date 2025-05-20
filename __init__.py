@@ -1,16 +1,15 @@
-from flask import Flask
+from flask import Flask, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail
 from sqlalchemy.dialects.postgresql import UUID
 from flask_migrate import Migrate
 from config import Config
 from flask_login import LoginManager, UserMixin, current_user
-import pytz
 from werkzeug.security import check_password_hash, generate_password_hash
 from limiter import limiter
 import uuid
 from datetime import datetime, timedelta
-
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -22,11 +21,17 @@ mail.init_app(app)
 login_manager = LoginManager(app)
 login_manager.init_app(app)
 
-moscow_tz = pytz.timezone('Europe/Moscow')
+moscow_tz = ZoneInfo('Europe/Moscow')
 limiter.init_app(app)
 
 from main import main
 app.register_blueprint(main)
+
+def update_last_activity():
+    """Обновляет время последней активности пользователя"""
+    if current_user.is_authenticated:
+        current_user.last_activity = datetime.now(moscow_tz)
+        db.session.commit()
 
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
@@ -73,8 +78,6 @@ class User(db.Model, UserMixin):
 class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
-    description = db.Column(db.String(200))
-    permissions = db.Column(db.JSON, default=list)
     is_admin = db.Column(db.Boolean, default=False)
 
 class ProvideServices(db.Model):
@@ -165,15 +168,40 @@ class VisitorTracking(db.Model):
     def __repr__(self):
         return f'<Visitor {self.ip_address} at {self.visit_date}>'
 
+class BlockedContact(db.Model):
+    __tablename__ = "blocked_contacts"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    phone = db.Column(db.String(20), unique=True, nullable=True)
+    email = db.Column(db.String(200), unique=True, nullable=True)
+    blocked_at = db.Column(db.DateTime, default=lambda: datetime.now(moscow_tz))
+    reason = db.Column(db.Text)
+    request_id = db.Column(UUID(as_uuid=True), db.ForeignKey('requests.id'))
+
 with app.app_context():
     db.create_all()
     
-    if not Role.query.filter(Role.name.in_(['admin'])).count():
+    if not Role.query.filter(Role.name.in_(['admin', 'manager', 'tech', 'moderator'])).count():
         admin_role = Role(
             name='admin',
             is_admin=True
         )
         
+        moder_role = Role(
+            name='moder',
+        )
+        
+        tech_role = Role(
+            name='tech',
+        )
+        
+        manager_role = Role(
+            name='manager',
+        )
+        
+        db.session.add(manager_role)
+        db.session.add(tech_role)
+        db.session.add(moder_role)
         db.session.add(admin_role)
         db.session.commit()
         print("Роли успешно созданы!")

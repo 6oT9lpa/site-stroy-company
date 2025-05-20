@@ -44,6 +44,8 @@ body {
     overflow-y: scroll;
 }
 
+ul, li { list-style: none; }
+
 section {
     overflow-y: auto;
     scroll-snap-align: center;
@@ -52,8 +54,7 @@ section {
 
 footer {
     width: 95%;
-    margin: 2rem auto;
-    height: 20vh;
+    height: 50vh;
     overflow-y: auto;
     padding: 20px;
     scroll-snap-align: end;

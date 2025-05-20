@@ -9,6 +9,30 @@ from collections import defaultdict
 
 main = Blueprint('main', __name__)
 
+def check_access(required_role):
+    def decorator(f):
+        from functools import wraps
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.is_blocked:
+                return jsonify({'success': False, 'message': 'Доступ запрещен'}), 403
+            
+            if not hasattr(current_user, 'role') or not current_user.role:
+                return jsonify({'success': False, 'message': 'Роль не назначена'}), 403
+            
+            if current_user.role.name == 'admin':
+                return f(*args, **kwargs)
+            elif current_user.role.name == 'tech' and required_role != 'admin':
+                return f(*args, **kwargs)
+            elif current_user.role.name == 'moder' and required_role in ['moder', 'manager']:
+                return f(*args, **kwargs)
+            elif current_user.role.name == 'manager' and required_role == 'manager':
+                return f(*args, **kwargs)
+            
+            return jsonify({'success': False, 'message': 'Недостаточно прав'}), 403
+        return decorated_function
+    return decorator
+
 # Middleware для отслеживания посещений
 @main.before_request
 def track_visitor():
@@ -150,6 +174,8 @@ def admin_board(user_id: UUID):
 
 @limiter.limit("10 per minute")
 @main.route('/adminboard/load_all_provide_service', methods=['GET'])
+@login_required
+@check_access('manager')
 def load_provide_services():
     from __init__ import ProvideServices, FilterList
     
@@ -164,6 +190,7 @@ def load_provide_services():
     
 @main.route('/adminboard/add_service', methods=['PUT'])
 @login_required
+@check_access('moder')
 def add_service():
     from __init__ import ProvideServices, db
     
@@ -196,6 +223,7 @@ def add_service():
 
 @main.route('/adminboard/update_service', methods=['POST'])
 @login_required
+@check_access('moder')
 def update_service():
     from __init__ import ProvideServices, db
     
@@ -233,6 +261,7 @@ def update_service():
 
 @main.route('/adminboard/delete_service/<int:service_id>', methods=['DELETE'])
 @login_required
+@check_access('tech')
 def delete_service(service_id):
     from __init__ import ProvideServices, db
     
@@ -260,6 +289,7 @@ def delete_service(service_id):
 
 @main.route('/adminboard/get_service/<int:service_id>', methods=['GET'])
 @login_required
+@check_access('manager')
 def get_service(service_id):
     from __init__ import ProvideServices
     
@@ -286,6 +316,7 @@ def get_service(service_id):
 
 @main.route('/adminboard/add_filter', methods=['PUT'])
 @login_required
+@check_access('moder')
 def add_filter():
     from __init__ import FilterList, db
     
@@ -316,6 +347,7 @@ def add_filter():
 
 @main.route('/adminboard/update_filter', methods=['POST'])
 @login_required
+@check_access('moder')
 def update_filter():
     from __init__ import FilterList, db
     
@@ -353,6 +385,7 @@ def update_filter():
 
 @main.route('/adminboard/delete_filter/<int:filter_id>', methods=['DELETE'])
 @login_required
+@check_access('tech')
 def delete_filter(filter_id):
     from __init__ import FilterList, ProvideServices, db
     
@@ -396,6 +429,7 @@ def delete_filter(filter_id):
 
 @main.route('/adminboard/get_filter/<int:filter_id>', methods=['GET'])
 @login_required
+@check_access('manager')
 def get_filter(filter_id):
     from __init__ import FilterList
     
@@ -416,6 +450,7 @@ def get_filter(filter_id):
 
 @main.route('/adminboard/get_request/<string:request_id>', methods=['GET'])
 @login_required
+@check_access('manager')
 def get_request(request_id):
     from __init__ import Requests, db
     try:
@@ -441,6 +476,7 @@ def get_request(request_id):
         
 @main.route('/adminboard/get_requests', methods=['GET'])
 @login_required
+@check_access('manager')
 def get_requests():
     from __init__ import Requests
     
@@ -451,12 +487,54 @@ def get_requests():
         "requests": requests
     })
     
+@main.route('/adminboard/update_request_status/<string:request_id>', methods=['POST'])
+@login_required
+@check_access('manager')
+def update_request_status(request_id):
+    from __init__ import Requests, db
+    
+    try:
+        request_item = Requests.query.get(UUID(request_id))
+        if not request_item:
+            return jsonify({"success": False, "message": "Заявка не найдена"}), 404
+        
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if new_status not in ['Новая', 'В рассмотрении', 'В работе', 'Завершена', 'Отклонена']:
+            return jsonify({"success": False, "message": "Недопустимый статус"}), 400
+        
+        request_item.status = new_status
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "Статус заявки обновлен"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @main.route('/submit_order', methods=['POST'])
 def submit_order():
-    from __init__ import Requests, db, mail
+    from __init__ import Requests, db, mail, BlockedContact
     from flask_mail import Message
     
     data = request.get_json()
+    phone = data['phone']
+    email = data.get('email')
+    
+    blocked = False
+    if email:
+        blocked = BlockedContact.query.filter(
+            (BlockedContact.phone == phone) | 
+            (BlockedContact.email == email)
+        ).first()
+    else:
+        blocked = BlockedContact.query.filter_by(phone=phone).first()
+    
+    if blocked:
+        return jsonify({
+            "success": False,
+            "message": "Ваши контактные данные заблокированы для подачи заявок"
+        }), 403
     
     try:
         # Сохраняем заказ в базу
@@ -495,26 +573,6 @@ def submit_order():
                 """
             )
             mail.send(msg)
-        # Отправляем письмо менеджеру
-        manager_msg = Message(
-            subject=f"Новая заявка №{new_request.id}",
-            recipients=[data.get('email')],
-            body=f"""Поступила новая заявка:
-            Клиент: {data['fullName']}
-            Телефон: {data['phone']}
-            Email: {data.get('email', 'не указан')}
-
-            Услуги:
-            {chr(10).join([f"- {item['name']} ({item['price']})" for item in data['services']])}
-
-            Комментарии клиента:
-            {data['comments']}
-
-            Дополнительные ответы:
-            {chr(10).join([f"- {item['question']}: {item['answer']}" for item in data.get('answers', [])])}
-            """
-        )
-        mail.send(manager_msg)
         
         return jsonify({"success": True, "message": "Заявка успешно создана"})
     except Exception as e:
@@ -524,6 +582,7 @@ def submit_order():
 
 @main.route('/adminboard/dashboard_stats', methods=['GET'])
 @login_required
+@check_access('manager')
 def dashboard_stats():
     from __init__ import Requests, db, VisitorTracking
     
@@ -630,7 +689,6 @@ def calculate_percentage_change(old_value, new_value):
 
 """ Обратка запросов для вопросов категорий """
 @main.route('/adminboard/get_questions', methods=['GET'])
-@login_required
 def get_questions():
     from __init__ import ServiceQuestion, FilterList
     
@@ -652,28 +710,34 @@ def get_questions():
         "questions": result
     })
 
-@main.route('/adminboard/add_question', methods=['PUT'])
+@main.route('/adminboard/add_questions', methods=['PUT'])
 @login_required
-def add_question():
+@check_access('moder')
+def add_questions():
     from __init__ import ServiceQuestion, db
     
     data = request.get_json()
+    filter_id = data.get('filter_id')
+    questions = data.get('questions', [])
+    
+    if not filter_id or not questions:
+        return jsonify({"success": False, "message": "Не все обязательные поля заполнены"}), 400
     
     try:
-        new_question = ServiceQuestion(
-            filter_id=data['filter_id'],
-            question_text=data['question_text'],
-            is_required=data.get('is_required', False),
-            answer_type=data.get('answer_type', 'text')
-        )
+        for question_data in questions:
+            new_question = ServiceQuestion(
+                filter_id=filter_id,
+                question_text=question_data['question_text'],
+                is_required=question_data.get('is_required', False),
+                answer_type=question_data.get('answer_type', 'text')
+            )
+            db.session.add(new_question)
         
-        db.session.add(new_question)
         db.session.commit()
         
         return jsonify({
             "success": True,
-            "message": "Вопрос успешно добавлен",
-            "question_id": new_question.id
+            "message": "Вопросы успешно добавлены"
         }), 201
     except Exception as e:
         db.session.rollback()
@@ -684,6 +748,7 @@ def add_question():
 
 @main.route('/adminboard/update_question', methods=['POST'])
 @login_required
+@check_access('moder')
 def update_question():
     from __init__ import ServiceQuestion, db
     
@@ -718,6 +783,7 @@ def update_question():
 
 @main.route('/adminboard/delete_question/<int:question_id>', methods=['DELETE'])
 @login_required
+@check_access('tech')
 def delete_question(question_id):
     from __init__ import ServiceQuestion, db
     
@@ -745,6 +811,7 @@ def delete_question(question_id):
 
 @main.route('/adminboard/get_question/<int:question_id>', methods=['GET'])
 @login_required
+@check_access('manager')
 def get_question(question_id):
     from __init__ import ServiceQuestion, FilterList
     
@@ -768,10 +835,8 @@ def get_question(question_id):
 
 @main.route('/adminboard/get_users', methods=['GET'])
 @login_required
+@check_access('manager')
 def get_users():
-    if not current_user.is_admin():
-        return jsonify({"success": False, "message": "Недостаточно прав"}), 403
-    
     from __init__ import User, Role, db
     search = request.args.get('search', '')
     
@@ -787,38 +852,51 @@ def get_users():
             )
         )
     
-    users = query.all()
     roles = Role.query.all()
     
     return jsonify({
         "success": True,
-        "users": [{
-            "id": str(user.id),
-            "username": user.username,
-            "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "is_blocked": user.is_blocked,
-            "role_id": user.role_id,
-            "role_name": user.role.name if user.role else None,
-            "last_activity": user.last_activity.isoformat() if user.last_activity else None
-        } for user in users],
+        "users": [user.to_dict() for user in User.query.all()],
         "roles": [{
             "id": role.id,
             "name": role.name,
-            "description": role.description,
             "is_admin": role.is_admin
         } for role in roles]
     })
 
-@main.route('/adminboard/add_user', methods=['POST'])
+@main.route('/adminboard/get_user/<string:user_id>', methods=['GET'])
 @login_required
+@check_access('manager')
+def get_user(user_id):
+    from __init__ import User, Role
+
+    if not current_user.is_admin():
+        return jsonify({"success": False, "message": "Недостаточно прав"}), 403
+    
+    user = User.query.get(UUID(user_id))
+    if not user:
+        return jsonify({"success": False, "message": "Пользователь не найден"}), 404
+    
+    return jsonify({
+        'success': True,
+        'user': user.to_dict(),
+    })
+
+@main.route('/adminboard/add_user', methods=['PUT'])
+@login_required
+@check_access('admin')
 def add_user():
     if not current_user.is_admin():
         return jsonify({"success": False, "message": "Недостаточно прав"}), 403
     
     from __init__ import User, db
     data = request.get_json()
+    
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({
+            "success": False,
+            "message": "Пользователь с таким email уже существует"
+        }), 400
     
     required_fields = ['username', 'email', 'password', 'role_id']
     if not all(field in data for field in required_fields):
@@ -850,6 +928,7 @@ def add_user():
 
 @main.route('/adminboard/update_user', methods=['POST'])
 @login_required
+@check_access('admin')
 def update_user():
     from __init__ import User, db
     data = request.get_json()
@@ -867,10 +946,7 @@ def update_user():
         user.email = data.get('email', user.email)
         user.first_name = data.get('first_name', user.first_name)
         user.last_name = data.get('last_name', user.last_name)
-        user.blocked = data.get('is_active', user.is_active)
-        
-        if 'password' in data and data['password']:
-            user.set_password(data['password'])
+        user.blocked = data.get('is_blocked', user.is_blocked)
         
         if current_user.is_admin() and 'role_id' in data:
             user.role_id = data['role_id']
@@ -890,6 +966,7 @@ def update_user():
 
 @main.route('/adminboard/delete_user/<string:user_id>', methods=['DELETE'])
 @login_required
+@check_access('admin')
 def delete_user(user_id):
     if not current_user.is_admin():
         return jsonify({"success": False, "message": "Недостаточно прав"}), 403
@@ -917,9 +994,51 @@ def delete_user(user_id):
             "success": False,
             "message": str(e)
         }), 500
+        
+@main.route('/adminboard/block_user/<string:user_id>', methods=['POST'])
+@login_required
+@check_access('admin')
+def block_user(user_id):
+    from __init__ import User, db
+    
+    try:
+        user = User.query.get(UUID(user_id))
+        if not user:
+            return jsonify({"success": False, "message": "Пользователь не найден"}), 404
+        
+        if user.role.name == 'admin':
+            return jsonify({"success": False, "message": "Нельзя заблокировать администратора"}), 403
+        
+        user.is_blocked = True
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "Пользователь заблокирован"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@main.route('/adminboard/unblock_user/<string:user_id>', methods=['POST'])
+@login_required
+@check_access('admin')
+def unblock_user(user_id):
+    from __init__ import User, db
+    
+    try:
+        user = User.query.get(UUID(user_id))
+        if not user:
+            return jsonify({"success": False, "message": "Пользователь не найден"}), 404
+        
+        user.is_blocked = False
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "Пользователь разблокирован"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @main.route('/adminboard/get_subscribers', methods=['GET'])
 @login_required
+@check_access('manager')
 def get_subscribers():
     from __init__ import db
     if not current_user.is_admin:
@@ -956,6 +1075,7 @@ def get_subscribers():
 
 @main.route('/adminboard/send_newsletter', methods=['POST'])
 @login_required
+@check_access('manager')
 def send_newsletter():
     if not current_user.is_admin:
         return jsonify({"success": False, "message": "Недостаточно прав"}), 403
@@ -993,3 +1113,101 @@ def send_newsletter():
             "success": False,
             "message": str(e)
         }), 500
+        
+@main.route('/update_activity', methods=['POST'])
+@login_required
+@check_access('manager')
+def update_activity():
+    from __init__ import moscow_tz, db
+    try:
+        current_user.last_activity = datetime.now(moscow_tz)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+@main.route('/adminboard/block_contact/<string:request_id>', methods=['POST'])
+@login_required
+@check_access('moder')
+def block_contact(request_id):
+    from __init__ import Requests, BlockedContact, db
+    
+    try:
+        request_item = Requests.query.get(UUID(request_id))
+        if not request_item:
+            return jsonify({"success": False, "message": "Заявка не найдена"}), 404
+        
+        existing_block = BlockedContact.query.filter(
+            (BlockedContact.phone == request_item.phone) |
+            (BlockedContact.email == request_item.email)
+        ).first()
+        
+        if existing_block:
+            return jsonify({"success": False, "message": "Контакт уже заблокирован"}), 400
+        
+        new_block = BlockedContact(
+            phone=request_item.phone,
+            email=request_item.email,
+            request_id=request_item.id,
+            reason="Блокировка администратором"
+        )
+        
+        db.session.add(new_block)
+        db.session.commit()
+        
+        return jsonify({"success": True})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+    
+@main.route('/adminboard/get_blocked_contacts', methods=['GET'])
+@login_required
+@check_access('manager')
+def get_blocked_contacts():
+    from __init__ import BlockedContact, db
+    search = request.args.get('search', '')
+    
+    query = BlockedContact.query.order_by(BlockedContact.blocked_at.desc())
+    
+    if search:
+        query = query.filter(
+            db.or_(
+                BlockedContact.phone.ilike(f'%{search}%'),
+                BlockedContact.email.ilike(f'%{search}%')
+            )
+        )
+    
+    blocked = query.all()
+    return jsonify({
+        "success": True,
+        "blocked_contacts": [{
+            "id": b.id,
+            "phone": b.phone,
+            "email": b.email,
+            "blocked_at": b.blocked_at.isoformat(),
+            "reason": b.reason
+        } for b in blocked]
+    })
+    
+@main.route('/adminboard/unblock_contact/<int:contact_id>', methods=['DELETE'])
+@login_required
+@check_access('tech')
+def unblock_contact(contact_id):
+    from __init__ import BlockedContact, db
+    
+    try:
+        contact = BlockedContact.query.get(contact_id)
+        if not contact:
+            return jsonify({"success": False, "message": "Контакт не найден"}), 404
+            
+        db.session.delete(contact)
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "Контакт успешно разблокирован"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+    

@@ -28,6 +28,9 @@ document.querySelectorAll('.admin-menu a').forEach(menuItem => {
             case 'services':
                 loadServicesAndFilters();
                 break;
+            case 'blocked-contacts':
+                loadBlockedContacts();
+                break;
         }
     });
 });
@@ -706,72 +709,114 @@ function loadRequests() {
 
 function showRequestDetails(requestId) {
     fetch(`/adminboard/get_request/${requestId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const request = data.request;
-                const modal = document.getElementById('request-details-modal');
-                
-                document.getElementById('request-id').textContent = requestId;
-                
-                // Форматируем дату
-                const createdAt = new Date(request.created_at);
-                const formattedDate = createdAt.toLocaleDateString('ru-RU', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                
-                // Форматируем услуги
-                let servicesHtml = '';
-                if (request.services && request.services.length > 0) {
-                    servicesHtml = request.services.map(service => `
-                        <div class="service">${service.name}</div>
-                    `).join('');
-                }
-                
-                document.getElementById('request-details-body').innerHTML = `
-                    <div class="request-details-item">
-                        <strong>Статус:</strong>
-                        <span class="request-status">${request.status}</span>
-                    </div>
-                    <div class="request-details-item">
-                        <strong>Дата создания:</strong>
-                        <span>${formattedDate}</span>
-                    </div>
-                    <div class="request-details-item">
-                        <strong>ФИО:</strong>
-                        <span>${request.full_name}</span>
-                    </div>
-                    <div class="request-details-item">
-                        <strong>Телефон:</strong>
-                        <span>${request.phone}</span>
-                    </div>
-                    <div class="request-details-item">
-                        <strong>Email:</strong>
-                        <span>${request.email}</span>
-                    </div>
-                    <div class="request-details-item">
-                        <strong>Услуги:</strong>
-                        <div class="request-services">${servicesHtml}</div>
-                    </div>
-                    <div class="request-details-item">
-                        <strong>Комментарии:</strong>
-                        <p>${request.comments || 'Нет комментариев'}</p>
-                    </div>
-                `;
-                
-                modal.style.display = 'flex';
-            } else {
-                showNotification(data.message || 'Ошибка загрузки данных заявки', 'error');
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const request = data.request;
+            const modal = document.getElementById('request-details-modal');
+            
+            document.getElementById('request-id').textContent = requestId;
+            
+            const createdAt = new Date(request.created_at);
+            const formattedDate = createdAt.toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            let servicesHtml = '';
+            if (request.services && request.services.length > 0) {
+                servicesHtml = request.services.map(service => `
+                    <div class="service">${service.name}</div>
+                `).join('');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Ошибка загрузки данных заявки', 'error');
-        });
+            
+            document.getElementById('request-details-body').innerHTML = `
+                <div class="request-details-item">
+                    <strong>Статус:</strong>
+                    <span class="request-status status-${getStatusClass(request.status)}">${request.status}</span>
+                </div>
+                <div class="request-details-item">
+                    <strong>Дата создания:</strong>
+                    <span>${formattedDate}</span>
+                </div>
+                <div class="request-details-item">
+                    <strong>ФИО:</strong>
+                    <span>${request.full_name}</span>
+                </div>
+                <div class="request-details-item">
+                    <strong>Телефон:</strong>
+                    <span>${request.phone}</span>
+                </div>
+                <div class="request-details-item">
+                    <strong>Email:</strong>
+                    <span>${request.email}</span>
+                </div>
+                <div class="request-details-item">
+                    <strong>Услуги:</strong>
+                    <div class="request-services">${servicesHtml}</div>
+                </div>
+                <div class="request-details-item">
+                    <strong>Комментарии:</strong>
+                    <p>${request.comments || 'Нет комментариев'}</p>
+                </div>
+                ${request.answers && request.answers.length > 0 ? `
+                <div class="request-details-item">
+                    <strong>Ответы на вопросы:</strong>
+                    <div class="request-answers">
+                        ${request.answers.map(a => `
+                            <div class="answer">
+                                <p>${a.question}: <strong>${a.answer}</strong></p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>` : ''}
+                <div class="request-actions">
+                    <select id="request-status-change">
+                        <option value="Новая" ${request.status === 'Новая' ? 'selected' : ''}>Новая</option>
+                        <option value="В рассмотрении" ${request.status === 'В рассмотрении' ? 'selected' : ''}>В рассмотрении</option>
+                        <option value="В работе" ${request.status === 'В работе' ? 'selected' : ''}>В работе</option>
+                        <option value="Завершена" ${request.status === 'Завершена' ? 'selected' : ''}>Завершена</option>
+                        <option value="Отклонена" ${request.status === 'Отклонена' ? 'selected' : ''}>Отклонена</option>
+                    </select>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+
+            // Обработчик сохранения статуса
+            document.getElementById('save-request-status').addEventListener('click', () => {
+                const newStatus = document.getElementById('request-status-change').value;
+                updateRequestStatus(requestId, newStatus);
+            });
+        }
+    });
+}
+
+function updateRequestStatus(requestId, status) {
+    fetch(`/adminboard/update_request_status/${requestId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Статус заявки обновлен', 'success');
+            loadRequests();
+            document.getElementById('request-details-modal').style.display = 'none';
+        } else {
+            showNotification(data.message || 'Ошибка обновления статуса', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Ошибка обновления статуса', 'error');
+    });
 }
 
 document.getElementById('status-filter').addEventListener('change', filterRequests);
@@ -978,12 +1023,11 @@ function renderRecentRequests(requests) {
             <th>Телефон</th>
             <th>Услуги</th>
             <th>Статус</th>
-            <th>Сумма</th>
+            <th>Действия</th>
         </tr>
     `;
     tableEl.appendChild(thead);
     
-    // Тело таблицы
     const tbody = document.createElement('tbody');
     requests.forEach(request => {
         const tr = document.createElement('tr');
@@ -992,17 +1036,22 @@ function renderRecentRequests(requests) {
             <td>${new Date(request.created_at).toLocaleDateString()}</td>
             <td>${request.full_name}</td>
             <td>${request.phone}</td>
-            <td>${request.services.length} услуг</td>
+            <td>${request.services.map(s => s.name).join(', ')}</td>
             <td><span class="status-badge status-${getStatusClass(request.status)}">${request.status}</span></td>
-            <td>${request.total_price ? Math.round(request.total_price) + ' руб.' : '-'}</td>
+            <td><button class="view-details" data-id="${request.id}">Подробнее</button></td>
         `;
-        tr.addEventListener('click', () => showRequestDetails(request.id));
-        tr.style.cursor = 'pointer';
         tbody.appendChild(tr);
     });
     tableEl.appendChild(tbody);
     
     table.appendChild(tableEl);
+    
+    document.querySelectorAll('.view-details').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const requestId = e.currentTarget.dataset.id;
+            showRequestDetails(requestId);
+        });
+    });
 }
 
 function getStatusClass(status) {
@@ -1010,6 +1059,7 @@ function getStatusClass(status) {
         case 'Новая': return 'new';
         case 'В рассмотрении': return 'review';
         case 'В работе': return 'in-progress';
+        case 'Отклонена': return 'reject';
         case 'Завершена': return 'completed';
         default: return '';
     }
@@ -1068,16 +1118,6 @@ document.getElementById('add-question-btn').addEventListener('click', function()
     document.getElementById('question-type').value = 'text';
     document.getElementById('question-required').checked = false;
 });
-
-function loadQuestions() {
-    fetch('/adminboard/get_questions')
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            renderQuestions(data.questions);
-        }
-    });
-}
 
 function renderQuestions(questions) {
     const container = document.getElementById('questions-list');
@@ -1161,21 +1201,10 @@ function renderQuestions(questions) {
     });
 }
 
-function getAnswerTypeName(type) {
-    const types = {
-        'text': 'Текстовое поле',
-        'radio': 'Один вариант',
-        'checkbox': 'Несколько вариантов'
-    };
-    return types[type] || type;
-}
-
-function showQuestionModal() {
+function showQuestionModal(filterId = null) {
     const modal = document.getElementById('question-modal');
     modal.style.display = 'flex';
-    
-    const isEdit = modal.dataset.id;
-    modal.querySelector('h3').textContent = isEdit ? 'Редактировать вопрос' : 'Добавить вопрос';
+    modal.querySelector('h3').textContent = 'Добавить вопрос';
     
     // Очищаем поля
     document.getElementById('question-text').value = '';
@@ -1194,6 +1223,9 @@ function showQuestionModal() {
                     const option = document.createElement('option');
                     option.value = filter.id;
                     option.textContent = filter.name;
+                    if (filterId && filter.id === filterId) {
+                        option.selected = true;
+                    }
                     select.appendChild(option);
                 });
             }
@@ -1213,30 +1245,22 @@ function showQuestionModal() {
             return;
         }
         
-        const url = modal.dataset.id ? 
-            '/adminboard/update_question' : 
-            '/adminboard/add_question';
-            
-        const method = modal.dataset.id ? 'POST' : 'PUT';
-        
-        if (modal.dataset.id) {
-            questionData.id = modal.dataset.id;
-        }
-        
-        fetch(url, {
-            method: method,
+        fetch('/adminboard/add_questions', {
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(questionData)
+            body: JSON.stringify({
+                filter_id: questionData.filter_id,
+                questions: [questionData]
+            })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showNotification(modal.dataset.id ? 'Вопрос обновлен' : 'Вопрос сохранен', 'success');
+                showNotification('Вопрос добавлен', 'success');
                 loadQuestions();
                 modal.style.display = 'none';
-                delete modal.dataset.id;
             } else {
                 showNotification(data.message || 'Ошибка сохранения', 'error');
             }
@@ -1246,6 +1270,15 @@ function showQuestionModal() {
             showNotification('Ошибка сохранения вопроса', 'error');
         });
     };
+}
+
+function getAnswerTypeName(type) {
+    switch(type) {
+        case 'text': return 'Текстовое поле';
+        case 'radio': return 'Один вариант';
+        case 'checkbox': return 'Несколько вариантов';
+        default: return type;
+    }
 }
 
 function editQuestionModal(questionId) {
@@ -1349,6 +1382,16 @@ function deleteQuestion(questionId) {
     });
 }
 
+function loadQuestions() {
+    fetch('/adminboard/get_questions')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderQuestions(data.questions);
+        }
+    });
+}
+
 function loadUsers(search = '') {
     fetch(`/adminboard/get_users?search=${encodeURIComponent(search)}`)
     .then(response => response.json())
@@ -1378,20 +1421,31 @@ function renderUsers(users, roles) {
         const tr = document.createElement('tr');
         tr.dataset.id = user.id;
         
-        const statusClass = user.is_blocked ? 'blocked' : (user.is_active ? 'active' : 'inactive');
-        const statusText = user.is_blocked ? 'Заблокирован' : (user.is_active ? 'Активен' : 'Неактивен');
-        
+        let statusClass, statusText;
+        if (user.is_blocked) {
+            statusClass = 'blocked';
+            statusText = 'Заблокирован';
+        } else {
+            statusClass = 'active';
+            statusText = 'Активен';
+        }
+        const role_id = Number(user.role_id);
+        const role = roles.find(r => r.id === role_id);
         tr.innerHTML = `
             <td>${user.username}</td>
             <td>${user.email}</td>
             <td>${user.first_name || '-'}</td>
             <td>${user.last_name || '-'}</td>
-            <td>${user.role_name}</td>
+            <td>${role.name}</td>
             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
             <td>${user.last_activity ? new Date(user.last_activity).toLocaleString() : 'Никогда'}</td>
             <td class="actions">
                 <button class="edit-user" data-id="${user.id}"><i class="fas fa-edit"></i></button>
-                <button class="delete-user" data-id="${user.id}"><i class="fas fa-trash"></i></button>
+                ${role.name !== 'admin' ? 
+                    `<button class="${user.is_blocked ? 'unblock-user' : 'block-user'}" data-id="${user.id}">
+                        <i class="fas ${user.is_blocked ? 'fa-unlock' : 'fa-lock'}"></i>
+                    </button>` : ''
+                }
             </td>
         `;
         
@@ -1406,15 +1460,37 @@ function renderUsers(users, roles) {
         });
     });
     
-    document.querySelectorAll('.delete-user').forEach(btn => {
+    document.querySelectorAll('.block-user, .unblock-user').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const userId = e.currentTarget.dataset.id;
-            deleteUser(userId);
+            const isBlock = e.currentTarget.classList.contains('block-user');
+            toggleUserBlock(userId, isBlock);
         });
     });
 }
 
-function showUserModal(isEdit = false, userData = null) {
+function toggleUserBlock(userId, isBlock) {
+    if (!confirm(`Вы уверены, что хотите ${isBlock ? 'заблокировать' : 'разблокировать'} этого пользователя?`)) return;
+    
+    fetch(`/adminboard/${isBlock ? 'block_user' : 'unblock_user'}/${userId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Пользователь успешно ${isBlock ? 'заблокирован' : 'разблокирован'}`, 'success');
+            loadUsers();
+        } else {
+            showNotification(data.message || 'Ошибка операции', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Ошибка операции', 'error');
+    });
+}
+
+function showUserModal() {
     const modal = document.getElementById('user-modal');
     modal.style.display = 'flex';
     
@@ -1422,33 +1498,18 @@ function showUserModal(isEdit = false, userData = null) {
     const passwordField = document.getElementById('user-password');
     const passwordLabel = document.getElementById('password-label');
     
-    if (isEdit) {
-        title.textContent = 'Редактировать пользователя';
-        passwordField.required = false;
-        passwordLabel.textContent = 'Пароль (оставьте пустым, чтобы не изменять)';
-        modal.dataset.id = userData.id;
-        
-        // Заполняем поля данными пользователя
-        document.getElementById('user-username').value = userData.username;
-        document.getElementById('user-email').value = userData.email;
-        document.getElementById('user-first-name').value = userData.first_name || '';
-        document.getElementById('user-last-name').value = userData.last_name || '';
-        document.getElementById('user-active').checked = userData.is_active && !userData.is_blocked;
-        passwordField.value = '';
-    } else {
-        title.textContent = 'Добавить пользователя';
-        passwordField.required = true;
-        passwordLabel.textContent = 'Пароль*';
-        delete modal.dataset.id;
-        
-        // Очищаем поля
-        document.getElementById('user-username').value = '';
-        document.getElementById('user-email').value = '';
-        document.getElementById('user-first-name').value = '';
-        document.getElementById('user-last-name').value = '';
-        document.getElementById('user-password').value = '';
-        document.getElementById('user-active').checked = true;
-    }
+
+    title.textContent = 'Добавить пользователя';
+    passwordField.required = true;
+    passwordLabel.textContent = 'Пароль*';
+    delete modal.dataset.id;
+    
+    // Очищаем поля
+    document.getElementById('user-username').value = '';
+    document.getElementById('user-email').value = '';
+    document.getElementById('user-first-name').value = '';
+    document.getElementById('user-last-name').value = '';
+    document.getElementById('user-password').value = '';
     
     // Заполняем роли
     fetch('/adminboard/get_users')
@@ -1463,10 +1524,6 @@ function showUserModal(isEdit = false, userData = null) {
                     option.value = role.id;
                     option.textContent = role.name;
                     
-                    if (isEdit && userData.role_id == role.id) {
-                        option.selected = true;
-                    }
-                    
                     roleSelect.appendChild(option);
                 });
             }
@@ -1480,28 +1537,17 @@ function showUserModal(isEdit = false, userData = null) {
             first_name: document.getElementById('user-first-name').value || null,
             last_name: document.getElementById('user-last-name').value || null,
             role_id: document.getElementById('user-role').value,
-            is_active: document.getElementById('user-active').checked
+            password: document.getElementById('user-password').value,
         };
         
-        const password = document.getElementById('user-password').value;
-        if (password) {
-            userData.password = password;
-        }
-        
-        if (!userData.username || !userData.email || !userData.role_id || (!isEdit && !password)) {
+
+        if (!userData.username || !userData.email || !userData.role_id || !userData.password) {
             showNotification('Заполните обязательные поля', 'error');
             return;
         }
         
-        const url = isEdit ? '/adminboard/update_user' : '/adminboard/add_user';
-        const method = isEdit ? 'POST' : 'POST';
-        
-        if (isEdit) {
-            userData.id = modal.dataset.id;
-        }
-        
-        fetch(url, {
-            method: method,
+        fetch('/adminboard/add_user', {
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -1510,7 +1556,7 @@ function showUserModal(isEdit = false, userData = null) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showNotification(isEdit ? 'Пользователь обновлен' : 'Пользователь добавлен', 'success');
+                showNotification('Пользователь добавлен', 'success');
                 loadUsers();
                 modal.style.display = 'none';
             } else {
@@ -1524,26 +1570,108 @@ function showUserModal(isEdit = false, userData = null) {
     };
 }
 
-// Удаление пользователя
-function deleteUser(userId) {
-    if (!confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
+function showEditUserModal(userId) {
+    const modal = document.getElementById('user-modal');
+    modal.style.display = 'flex';
     
-    fetch(`/adminboard/delete_user/${userId}`, {
-        method: 'DELETE'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('Пользователь удален', 'success');
-            loadUsers();
-        } else {
-            showNotification(data.message || 'Ошибка удаления', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showNotification('Ошибка удаления пользователя', 'error');
-    });
+    const title = modal.querySelector('h3');
+    const passwordField = document.getElementById('user-password');
+    const passwordLabel = document.getElementById('password-label');
+    
+    title.textContent = 'Редактировать пользователя';
+    passwordField.style.display = 'none';
+    passwordLabel.style.display = 'none';
+    modal.dataset.id = userId;
+    
+    fetch(`/adminboard/get_user/${userId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const user = data.user;
+                
+                document.getElementById('user-username').value = user.username;
+                document.getElementById('user-email').value = user.email;
+                document.getElementById('user-first-name').value = user.first_name || '';
+                document.getElementById('user-last-name').value = user.last_name || '';
+                
+                // Заполняем роли
+                fetch('/adminboard/get_users')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const roleSelect = document.getElementById('user-role');
+                            roleSelect.innerHTML = '';
+                            
+                            data.roles.forEach(role => {
+                                const option = document.createElement('option');
+                                option.value = role.id;
+                                option.textContent = role.name;
+                                if (role.id === user.role_id) {
+                                    option.selected = true;
+                                }
+                                roleSelect.appendChild(option);
+                            });
+                            
+                            const roleInfo = document.querySelector('.role-info');
+                            if (!roleInfo) {
+                                // Добавляем подсказки по ролям
+                                const roleInfo = document.createElement('div');
+                                roleInfo.className = 'role-info';
+                                roleInfo.innerHTML = `
+                                    <strong>Подсказка по ролям:</strong>
+                                    <ul>
+                                        <li>Manager: может отправлять рассылки и обрабатывать заявки</li>
+                                        <li>Moder: все возможности менеджера + редактирование услуг и вопросов</li>
+                                        <li>Tech: полный доступ как у админа, но не может блокировать учетки</li>
+                                        <li>Admin: полный доступ ко всем функциям системы</li>
+                                    </ul>
+                                `;
+                                roleSelect.parentNode.appendChild(roleInfo);
+                            }
+                        }
+                    });
+                
+                // Обработчик сохранения
+                modal.querySelector('.save-btn').onclick = () => {
+                    const userData = {
+                        id: userId,
+                        username: document.getElementById('user-username').value,
+                        email: document.getElementById('user-email').value,
+                        first_name: document.getElementById('user-first-name').value || null,
+                        last_name: document.getElementById('user-last-name').value || null,
+                        role_id: document.getElementById('user-role').value,
+                    };
+                    
+                    fetch('/adminboard/update_user', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(userData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Пользователь обновлен', 'success');
+                            loadUsers();
+                            modal.style.display = 'none';
+                        } else {
+                            showNotification(data.message || 'Ошибка обновления', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('Ошибка обновления пользователя', 'error');
+                    });
+                };
+            } else {
+                showNotification(data.message || 'Ошибка загрузки данных пользователя', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Ошибка загрузки данных пользователя', 'error');
+        });
 }
 
 // Функции для работы с рассылками
@@ -1630,3 +1758,125 @@ function showNewsletterModal() {
         });
     };
 }
+
+function updateUserActivity() {
+    fetch('/update_activity', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+    }).catch(error => console.error('Activity update error:', error));
+}
+
+setInterval(updateUserActivity, 60000);
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateUserActivity();
+});
+
+function blockContact(requestId) {
+    if (!confirm('Заблокировать контактные данные этой заявки?')) return;
+    
+    fetch(`/adminboard/block_contact/${requestId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Контакт заблокирован', 'success');
+            loadRequests();
+        } else {
+            showNotification(data.message || 'Ошибка блокировки', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Ошибка блокировки', 'error');
+    });
+}
+
+document.getElementById('block-contact-btn').addEventListener('click', function() {
+    const requestId = document.getElementById('request-id').textContent;
+    blockContact(requestId);
+});
+
+function loadBlockedContacts(search = '') {
+    fetch(`/adminboard/get_blocked_contacts?search=${encodeURIComponent(search)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderBlockedContacts(data.blocked_contacts);
+            } else {
+                showNotification('Ошибка загрузки заблокированных контактов', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Ошибка загрузки заблокированных контактов', 'error');
+        });
+}
+
+function renderBlockedContacts(contacts) {
+    const blockedList = document.getElementById('blocked-list');
+    blockedList.innerHTML = '';
+    
+    if (contacts.length === 0) {
+        blockedList.innerHTML = '<tr><td colspan="5" class="empty-table">Нет заблокированных контактов</td></tr>';
+        return;
+    }
+    
+    contacts.forEach(contact => {
+        const tr = document.createElement('tr');
+        tr.dataset.id = contact.id;
+        
+        tr.innerHTML = `
+            <td>${contact.phone || '-'}</td>
+            <td>${contact.email || '-'}</td>
+            <td>${new Date(contact.blocked_at).toLocaleString()}</td>
+            <td>${contact.reason || 'Не указана'}</td>
+            <td class="actions">
+                <button class="unblock-contact" data-id="${contact.id}">
+                    <i class="fas fa-unlock"></i>
+                </button>
+            </td>
+        `;
+        
+        blockedList.appendChild(tr);
+    });
+    
+    // Обработчик разблокировки
+    document.querySelectorAll('.unblock-contact').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const contactId = e.currentTarget.dataset.id;
+            unblockContact(contactId);
+        });
+    });
+}
+
+function unblockContact(contactId) {
+    if (!confirm('Вы уверены, что хотите разблокировать этот контакт?')) return;
+    
+    fetch(`/adminboard/unblock_contact/${contactId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Контакт успешно разблокирован', 'success');
+            loadBlockedContacts();
+        } else {
+            showNotification(data.message || 'Ошибка разблокировки', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Ошибка разблокировки контакта', 'error');
+    });
+}
+
+// Добавим обработчик поиска
+document.getElementById('blocked-search').addEventListener('input', (e) => {
+    loadBlockedContacts(e.target.value);
+});

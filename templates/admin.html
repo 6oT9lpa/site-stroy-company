@@ -25,6 +25,7 @@
                 <a href="#orders"><i class="fas fa-clipboard-list"></i> Заявки</a>
                 <a href="#users"><i class="fas fa-users-cog"></i> Пользователи</a>
                 <a href="#communications"><i class="fas fa-mail-bulk"></i> Рассылки</a>
+                <a href="#blocked-contacts"><i class="fas fa-ban"></i> Заблокированные</a>
             </nav>
         </aside>
         <main>
@@ -216,6 +217,31 @@
                     </table>
                 </div>
             </div>
+            <div class="admin-content" id="blocked-contacts" style="display: none;">
+                <div class="blocked-header">
+                    <h2>Заблокированные контакты</h2>
+                    <div class="search-box">
+                        <input type="text" id="blocked-search" placeholder="Поиск по email или телефону...">
+                    </div>
+                </div>
+                
+                <div class="blocked-table-container">
+                    <table class="blocked-table">
+                        <thead>
+                            <tr>
+                                <th>Телефон</th>
+                                <th>Email</th>
+                                <th>Дата блокировки</th>
+                                <th>Причина</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="blocked-list">
+                            <!-- Данные будут загружаться динамически -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -249,12 +275,6 @@
                 <div class="form-group">
                     <label for="user-password" id="password-label">Пароль*</label>
                     <input type="password" id="user-password" required>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-container">
-                        <input type="checkbox" id="user-active" checked>
-                        <span>Активный</span>
-                    </label>
                 </div>
             </div>
             <div class="modal-footer">
@@ -299,13 +319,15 @@
                     <select id="question-filter" required></select>
                 </div>
                 <div class="form-group">
-                    <label for="question-text">Текст вопроса</label>
+                    <label for="question-text">Текст вопроса*</label>
                     <input type="text" id="question-text" required>
                 </div>
                 <div class="form-group">
                     <label for="question-type">Тип ответа</label>
                     <select id="question-type">
                         <option value="text">Текстовое поле</option>
+                        <option value="radio">Один вариант</option>
+                        <option value="checkbox">Несколько вариантов</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -334,6 +356,10 @@
             </div>
             <div class="modal-footer">
                 <button class="cancel-btn">Закрыть</button>
+                <button class="danger-btn" id="block-contact-btn">
+                    <i class="fas fa-ban"></i> Заблокировать контакт
+                </button>
+                <button class="save-btn" id="save-request-status">Сохранить</button>
             </div>
         </div>
     </div>
