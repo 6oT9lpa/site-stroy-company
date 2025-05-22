@@ -3,16 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'nonce-{{ nonce }}'; script-src 'self'">
     <title>Строительные услуги</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/root.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/index.css') }}">
+
+    <style nonce="{{ nonce }}">
+        .construction-faq::before {
+            background-image: url('{{ url_for("static", filename="img/bg01.png") }}');
+        }
+        .services::before {
+            background-image: url('{{ url_for("static", filename="img/bg02.png") }}');
+        }
+        .order-section::before {
+            background-image: url('{{ url_for("static", filename="img/bg01.png") }}');
+        }
+    </style>
 </head>
 <body>
     <header class='glass-effect'>
         <div class="logo">
-            <img src="{{ url_for('static', filename='img/logo.svg') }}">
+            <img src="{{ url_for('static', filename='img/logo.png') }}">
         </div>
         <button class="menu-toggle" id="menuToggle">
             <i class="fas fa-bars"></i>
@@ -26,69 +38,71 @@
     </header>
 
     <main class="container">
-        <section id="about" class="construction-faq">
-            <div class="company-info-section">
-                <div class="company-text-block">
-                    <h1 class="section-heading">Строительная компания (ИП) — строительство и реставрация под ключ</h1>
-                    <div class="company-description">
-                        <p>Наша строительная компания работает с 2013 года и специализируется на возведении и реконструкции объектов гражданского, коммерческого и государственного значения. За это время мы успешно сдали в эксплуатацию более 150 частных объектов и свыше 30 муниципальных и государственных объектов, строго в установленные сроки.</p>
+        <section id="about" class="construction-faq alternating-bg bg1">
+            <div class="section-max">
+                <div class="company-info-section">
+                    <div class="company-text-block">
+                        <h1 class="section-heading">Строительная организация (ИП) — строительство жилых и нежилых зданий</h1>
+                        <div class="company-description">
+                            <p>Наша строительная организация работает с 2013 года и специализируется на возведении и реконструкции объектов гражданского, коммерческого и государственного значения. За это время мы успешно сдали в эксплуатацию более 150 частных объектов и свыше 30 муниципальных и государственных объектов, строго в установленные сроки.</p>
 
-                        <h2>Услуги строительной компании:</h2>
-                        <div class="activity-list">
-                            <p><i class="fas fa-check"></i> <strong>Жилищное строительство:</strong> жилые комплексы эконом и премиум-класса</p>
-                            <p><i class="fas fa-check"></i> <strong>Муниципальные объекты:</strong> школы, детские сады</p>
-                            <p><i class="fas fa-check"></i> <strong>Реставрация:</strong> военные школы, поликлиники и частные лечебные учреждения</p>
-                            <p><i class="fas fa-check"></i> <strong>Частное строительство:</strong> строительство коттеджей и таунхаусов под ключ</p>
+                            <h2>Услуги строительной организации:</h2>
+                            <div class="activity-list">
+                                <p><i class="fas fa-check"></i> <strong>Жилищное строительство:</strong> жилые комплексы эконом и премиум-класса</p>
+                                <p><i class="fas fa-check"></i> <strong>Муниципальные объекты:</strong> школы, детские сады</p>
+                                <p><i class="fas fa-check"></i> <strong>Реставрация:</strong> военные школы, поликлиники и частные лечебные учреждения</p>
+                                <p><i class="fas fa-check"></i> <strong>Частное строительство:</strong> строительство коттеджей и таунхаусов под ключ</p>
+                            </div>
+
+                            <p>Мы применяем современные BIM-технологии, которые позволяют эффективно управлять проектированием и строительством. Работаем исключительно с сертифицированными материалами от надежных поставщиков.</p>
                         </div>
-
-                        <p>Мы применяем современные BIM-технологии, которые позволяют эффективно управлять проектированием и строительством. Работаем исключительно с сертифицированными материалами от надежных поставщиков.</p>
+                    </div>
+                    <div class="company-image-block">
+                        <img src="{{ url_for('static', filename='img/img-info02.png') }}" alt="Проекты строительной компании - жилые дома, ТРЦ, школы">
                     </div>
                 </div>
-                <div class="company-image-block">
-                    <img src="{{ url_for('static', filename='img/img-info02.png') }}" alt="Проекты строительной компании - жилые дома, ТРЦ, школы">
-                </div>
-            </div>
 
-            <div class="advantages-section">
-                <div class="advantages-image-block">
-                    <img src="{{ url_for('static', filename='img/img-info01.png') }}" alt="Преимущества строительной компании">
-                </div>
-                <div class="advantages-text-block">
-                    <h2 class="section-heading">Почему выбирают нас</h2>
-                    <div class="advantages-list">
-                        <div class="advantage-item">
-                            <i class="fas fa-shield"></i>
-                            <div>
-                                <h3>Индивидуальный подход</h3>
-                                <p>Личный прораб и авторский надзор на всех этапах строительства</p>
+                <div class="advantages-section">
+                    <div class="advantages-image-block">
+                        <img src="{{ url_for('static', filename='img/img-info01.png') }}" alt="Преимущества строительной компании">
+                    </div>
+                    <div class="advantages-text-block">
+                        <h2 class="section-heading">Почему выбирают нас</h2>
+                        <div class="advantages-list">
+                            <div class="advantage-item">
+                                <i class="fas fa-shield"></i>
+                                <div>
+                                    <h3>Индивидуальный подход</h3>
+                                    <p>Личный прораб и авторский надзор на всех этапах строительства</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="advantage-item">
-                            <i class="fas fa-ruble-sign"></i>
-                            <div>
-                                <h3>Фиксированная стоимость</h3>
-                                <p>Честное ценообразование без скрытых платежей</p>
+                            <div class="advantage-item">
+                                <i class="fas fa-ruble-sign"></i>
+                                <div>
+                                    <h3>Фиксированная стоимость</h3>
+                                    <p>Честное ценообразование без скрытых платежей</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="advantage-item">
-                            <i class="fas fa-award"></i>
-                            <div>
-                                <h3>Гарантированное качество</h3>
-                                <p>Используем только сертифицированные материалы от ведущих производителей</p>
+                            <div class="advantage-item">
+                                <i class="fas fa-award"></i>
+                                <div>
+                                    <h3>Гарантированное качество</h3>
+                                    <p>Используем только сертифицированные материалы от ведущих производителей</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="advantage-item">
-                            <i class="fas fa-calendar-check"></i>
-                            <div>
-                                <h3>Соблюдение сроков</h3>
-                                <p>Контроль каждого этапа строительства, еженедельная отчетность</p>
+                            <div class="advantage-item">
+                                <i class="fas fa-calendar-check"></i>
+                                <div>
+                                    <h3>Соблюдение сроков</h3>
+                                    <p>Контроль каждого этапа строительства, еженедельная отчетность</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="advantage-item">
-                            <i class="fas fa-file-contract"></i>
-                            <div>
-                                <h3>Прозрачные договорные отношения</h3>
-                                <p>Все обязательства закреплены официальным договором</p>
+                            <div class="advantage-item">
+                                <i class="fas fa-file-contract"></i>
+                                <div>
+                                    <h3>Прозрачные договорные отношения</h3>
+                                    <p>Все обязательства закреплены официальным договором</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -96,77 +110,80 @@
             </div>
         </section>
 
-
-        <section id="services" class='services'>
-            <h2 class="section-heading">Предоставляемые услуги</h2>
-            <div class="service-tabs" id="service-tabs">
-                <!-- Табы будут добавляться динамически -->
-            </div>
-            
-            <div class="construction-stages" id="construction-stages">
-                <!-- Услуги будут добавляться динамически -->
+        <section id="services" class="services alternating-bg bg2">
+            <div class="section-max">
+                <h2 class="section-heading">Предоставляемые услуги</h2>
+                <div class="service-tabs" id="service-tabs">
+                    <!-- Табы будут добавляться динамически -->
+                </div>
+                
+                <div class="construction-stages" id="construction-stages">
+                    <!-- Услуги будут добавляться динамически -->
+                </div>
             </div>
         </section>
-        <section id="order" class="order-section">
-            <div class="order-container">
-                <div class="services-selection">
-                    <h2 class="section-heading">Оформление заказа</h2>
-                    <div class="selected-services" id="selected-services"></div>
-                    
-                    <form id="order-form">
-                        <div class="form-group">
-                            <label for="full-name">ФИО*</label>
-                            <input type="text" id="full-name" required>
-                        </div>
+        <section id="order" class="order-section alternating-bg bg1">
+            <div class="section-max">
+                <div class="order-container">
+                    <div class="services-selection">
+                        <h2 class="section-heading">Оформление заказа</h2>
+                        <div class="selected-services" id="selected-services"></div>
                         
-                        <div class="form-group">
-                            <label for="phone">Телефон*</label>
-                            <input type="tel" id="phone" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="email">Email</label>
-                            <input type="email" id="email">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="comments">Что у вас уже есть?*</label>
-                            <textarea id="comments" required placeholder="Опишите текущее состояние объекта (например: фундамент, стены, крыша) или укажите 'с нуля'"></textarea>
-                            <p class="comments-hint">Пожалуйста, укажите только конкретные детали о состоянии объекта. Это поможет нам точнее оценить работу.</p>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Какие материалы будут использоваться?</label>
-                            <div class="radio-group">
-                                <label class="checkbox-container">
-                                    <input type="radio" name="materials" value="our" checked>
-                                    <span>Материалы компании</span>
-                                </label>
-                                <label class="checkbox-container">
-                                    <input type="radio" name="materials" value="client">
-                                    <span>Материалы заказчика</span>
-                                </label>
-                                <label class="checkbox-container">
-                                    <input type="radio" name="materials" value="mixed">
-                                    <span>Комбинация материалов</span>
-                                </label>
+                        <form id="order-form">
+                            <div class="form-group">
+                                <label for="full-name">ФИО*</label>
+                                <input type="text" id="full-name" required>
                             </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="consent-personal" required>
-                                <span>Я согласен на обработку персональных данных*</span>
-                            </label>
                             
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="consent-marketing">
-                                <span>Я согласен получать информационные рассылки</span>
-                            </label>
-                        </div>
-                        
-                        <button type="submit" class="btn">Отправить заявку</button>
-                    </form>
+                            <div class="form-group">
+                                <label for="phone">Телефон*</label>
+                                <input type="tel" id="phone" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" id="email">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="comments">Что у вас уже есть?*</label>
+                                <textarea id="comments" required placeholder="Опишите текущее состояние объекта (например: фундамент, стены, крыша) или укажите 'с нуля'"></textarea>
+                                <p class="comments-hint">Пожалуйста, укажите только конкретные детали о состоянии объекта. Это поможет нам точнее оценить работу.</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Какие материалы будут использоваться?</label>
+                                <div class="radio-group">
+                                    <label class="checkbox-container">
+                                        <input type="radio" name="materials" value="our" checked>
+                                        <span>Материалы компании</span>
+                                    </label>
+                                    <label class="checkbox-container">
+                                        <input type="radio" name="materials" value="client">
+                                        <span>Материалы заказчика</span>
+                                    </label>
+                                    <label class="checkbox-container">
+                                        <input type="radio" name="materials" value="mixed">
+                                        <span>Комбинация материалов</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="consent-personal" required>
+                                    <span>Я согласен на обработку персональных данных*</span>
+                                </label>
+                                
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="consent-marketing">
+                                    <span>Я согласен получать информационные рассылки</span>
+                                </label>
+                            </div>
+                            
+                            <button type="submit" class="btn">Отправить заявку</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </section>
@@ -188,49 +205,98 @@
             </div>
         </div>
 
-        <footer id="contacts">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>Контакты</h3>
-                    <div class="contact-item">
-                        <i class="fas fa-phone"></i>
-                        <span>+7 (123) 456-78-90</span>
-                    </div>
-                    <div class="contact-item">
-                        <i class="fas fa-envelope"></i>
-                        <span>info@stroycompany.ru</span>
-                    </div>
-                    <div class="contact-item">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <span>г. Краснодар, ул. Строителей, 15</span>
-                    </div>
-                    <div class="contact-item">
-                        <i class="fas fa-clock"></i>
-                        <span>Пн-Пт: 9:00 - 18:00</span>
+        <footer id="contacts" class="modern-footer">
+            <div class="footer-container">
+                <!-- Контактная информация -->
+                <div class="footer-block">
+                    <h3 class="footer-title">Контакты</h3>
+                    <ul class="contact-list">
+                        <li class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-phone-alt"></i>
+                            </div>
+                            <div class="contact-info">
+                                <span class="contact-label">Телефон</span>
+                                <a href="tel:+79186442433" class="contact-link">+7 (918) 644-24-33</a>
+                                <a href="tel:+79189955959" class="contact-link">+7 (918) 995-59-59</a>
+                            </div>
+                        </li>
+                        <li class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div class="contact-info">
+                                <span class="contact-label">Email</span>
+                                <a href="mailto:info@stroycompany.ru" class="contact-link">info@stroycompany.ru</a>
+                            </div>
+                        </li>
+                        <li class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </div>
+                            <div class="contact-info">
+                                <span class="contact-label">Адрес</span>
+                                <p>Краснодарский край, г. Новороссийск, пр-т Дзержинского, д. 201, кв. 31</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Социальные сети -->
+                <div class="footer-block">
+                    <h3 class="footer-title">Мы в соцсетях</h3>
+                    <div class="social-grid">
+                        <a href="#" class="social-button vk">
+                            <i class="fab fa-vk"></i>
+                            <span>ВКонтакте</span>
+                        </a>
+                        <a href="#" class="social-button tg">
+                            <i class="fab fa-telegram"></i>
+                            <span>Telegram</span>
+                        </a>
+                        <a href="#" class="social-button yt">
+                            <i class="fab fa-youtube"></i>
+                            <span>YouTube</span>
+                        </a>
                     </div>
                 </div>
 
-                <div class="footer-section">
-                    <h3>Социальные сети</h3>
-                    <div class="social-links">
-                        <a href="#" class="social-link"><i class="fab fa-vk"></i> ВКонтакте</a>
-                        <a href="#" class="social-link"><i class="fab fa-telegram"></i> Telegram</a>
-                        <a href="#" class="social-link"><i class="fab fa-youtube"></i> YouTube</a>
-                        <a href="#" class="social-link"><i class="fab fa-instagram"></i> Instagram</a>
+                <!-- Реквизиты -->
+                <div class="footer-block">
+                    <h3 class="footer-title">Реквизиты</h3>
+                    <div class="requisites">
+                        <div class="requisite-item">
+                            <span class="requisite-label">ИП</span>
+                            <span>Зимин Иван Владимирович</span>
+                        </div>
+                        <div class="requisite-item">
+                            <span class="requisite-label">ИНН</span>
+                            <span>231517813150</span>
+                        </div>
+                        <div class="requisite-item">
+                            <span class="requisite-label">ОГРН</span>
+                            <span>322237500446940</span>
+                        </div>
+                        <div class="requisite-item">
+                            <span class="requisite-label">Банк</span>
+                            <span>АО "АЛЬФА-БАНК"</span>
+                        </div>
+                        <div class="requisite-item">
+                            <span class="requisite-label">Р/с</span>
+                            <span>40802810826020032669</span>
+                        </div>
                     </div>
-                </div>
-
-                <div class="footer-section">
-                    <h3>Реквизиты</h3>
-                    <p>ИП Иванов А.С.</p>
-                    <p>ИНН: 123456789012</p>
-                    <p>ОГРНИП: 123456789012345</p>
                 </div>
             </div>
 
+            <!-- Копирайт -->
             <div class="footer-bottom">
                 <div class="copyright">
-                    &copy; 2025. Все права защищены.
+                    &copy; 2025 Строительство жилых и нежилых зданий. Все права защищены.
+                </div>
+                <div class="legal-links">
+                    <a href="#">Политика конфиденциальности</a>
+                    <a href="#">Договор оферты</a>
                 </div>
             </div>
         </footer>

@@ -63,7 +63,8 @@ def track_visitor():
 @limiter.limit("10 per minute")
 @main.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    nonce = os.urandom(16).hex()
+    return render_template('index.html', nonce=nonce)
 
 @main.route('/get_services_for_main_page', methods=['GET'])
 def get_services_for_main_page():
