@@ -1498,10 +1498,13 @@ function showUserModal() {
     const passwordField = document.getElementById('user-password');
     const passwordLabel = document.getElementById('password-label');
     
-
-    title.textContent = 'Добавить пользователя';
+    // Показываем поле пароля и делаем его обязательным для создания
+    passwordField.style.display = 'block';
     passwordField.required = true;
+    passwordLabel.style.display = 'block';
     passwordLabel.textContent = 'Пароль*';
+    
+    title.textContent = 'Добавить пользователя';
     delete modal.dataset.id;
     
     // Очищаем поля
@@ -1523,9 +1526,25 @@ function showUserModal() {
                     const option = document.createElement('option');
                     option.value = role.id;
                     option.textContent = role.name;
-                    
                     roleSelect.appendChild(option);
                 });
+                
+                // Добавляем подсказки по ролям (только если еще не добавлены)
+                const roleInfo = document.querySelector('.role-info');
+                if (!roleInfo) {
+                    const roleInfoDiv = document.createElement('div');
+                    roleInfoDiv.className = 'role-info';
+                    roleInfoDiv.innerHTML = `
+                        <strong>Подсказка по ролям:</strong>
+                        <ul>
+                            <li><strong>Manager:</strong> может отправлять рассылки и обрабатывать заявки</li>
+                            <li><strong>Moder:</strong> все возможности менеджера + редактирование услуг и вопросов</li>
+                            <li><strong>Tech:</strong> полный доступ как у админа, но не может блокировать учетки</li>
+                            <li><strong>Admin:</strong> полный доступ ко всем функциям системы</li>
+                        </ul>
+                    `;
+                    roleSelect.parentNode.appendChild(roleInfoDiv);
+                }
             }
         });
     
@@ -1540,7 +1559,6 @@ function showUserModal() {
             password: document.getElementById('user-password').value,
         };
         
-
         if (!userData.username || !userData.email || !userData.role_id || !userData.password) {
             showNotification('Заполните обязательные поля', 'error');
             return;
@@ -1568,6 +1586,11 @@ function showUserModal() {
             showNotification('Ошибка сохранения пользователя', 'error');
         });
     };
+    
+    // Обработчик закрытия модального окна
+    modal.querySelector('.close-modal').onclick = () => {
+        modal.style.display = 'none';
+    };
 }
 
 function showEditUserModal(userId) {
@@ -1579,6 +1602,7 @@ function showEditUserModal(userId) {
     const passwordLabel = document.getElementById('password-label');
     
     title.textContent = 'Редактировать пользователя';
+    // Скрываем поле пароля для редактирования
     passwordField.style.display = 'none';
     passwordLabel.style.display = 'none';
     modal.dataset.id = userId;
@@ -1612,21 +1636,21 @@ function showEditUserModal(userId) {
                                 roleSelect.appendChild(option);
                             });
                             
+                            // Добавляем подсказки по ролям (только если еще не добавлены)
                             const roleInfo = document.querySelector('.role-info');
                             if (!roleInfo) {
-                                // Добавляем подсказки по ролям
-                                const roleInfo = document.createElement('div');
-                                roleInfo.className = 'role-info';
-                                roleInfo.innerHTML = `
+                                const roleInfoDiv = document.createElement('div');
+                                roleInfoDiv.className = 'role-info';
+                                roleInfoDiv.innerHTML = `
                                     <strong>Подсказка по ролям:</strong>
                                     <ul>
-                                        <li>Manager: может отправлять рассылки и обрабатывать заявки</li>
-                                        <li>Moder: все возможности менеджера + редактирование услуг и вопросов</li>
-                                        <li>Tech: полный доступ как у админа, но не может блокировать учетки</li>
-                                        <li>Admin: полный доступ ко всем функциям системы</li>
+                                        <li><strong>Manager:</strong> может отправлять рассылки и обрабатывать заявки</li>
+                                        <li><strong>Moder:</strong> все возможности менеджера + редактирование услуг и вопросов</li>
+                                        <li><strong>Tech:</strong> полный доступ как у админа, но не может блокировать учетки</li>
+                                        <li><strong>Admin:</strong> полный доступ ко всем функциям системы</li>
                                     </ul>
                                 `;
-                                roleSelect.parentNode.appendChild(roleInfo);
+                                roleSelect.parentNode.appendChild(roleInfoDiv);
                             }
                         }
                     });
@@ -1672,6 +1696,11 @@ function showEditUserModal(userId) {
             console.error('Error:', error);
             showNotification('Ошибка загрузки данных пользователя', 'error');
         });
+    
+    // Обработчик закрытия модального окна
+    modal.querySelector('.close-modal').onclick = () => {
+        modal.style.display = 'none';
+    };
 }
 
 // Функции для работы с рассылками

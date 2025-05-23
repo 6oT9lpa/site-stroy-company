@@ -1,11 +1,13 @@
-from flask import render_template, redirect, url_for, request, Blueprint, session, jsonify, send_from_directory
-from sqlalchemy.exc import SQLAlchemyError
+from flask import render_template, redirect, url_for, request, Blueprint, jsonify
 from flask_login import login_user, login_required, logout_user, current_user
-from limiter import limiter
-import traceback, json, os
+import os
 from uuid import UUID
 from datetime import datetime, timedelta
 from collections import defaultdict
+from flask_mail import Message
+
+from models import User, Role, ProvideServices, FilterList, ServiceQuestion, Requests, VisitorTracking, BlockedContact
+from __init__ import db, login_manager, limiter, mail, moscow_tz
 
 main = Blueprint('main', __name__)
 
@@ -33,7 +35,6 @@ def check_access(required_role):
         return decorated_function
     return decorator
 
-# Middleware для отслеживания посещений
 @main.before_request
 def track_visitor():
     excluded_paths = ['static', 'adminboard', 'favicon.ico']
@@ -41,24 +42,28 @@ def track_visitor():
     if any(path in request.path for path in excluded_paths):
         return
     
-    try:
-        from __init__ import VisitorTracking, db
-        
-        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
-        if ',' in ip_address:
-            ip_address = ip_address.split(',')[0].strip()
-        
-        visitor = VisitorTracking(
-            ip_address=ip_address,
-            user_agent=request.user_agent.string,
-            page_visited=request.path,
-            referrer=request.referrer
-        )
-        
-        db.session.add(visitor)
-        db.session.commit()
-    except Exception as e:
-        print(f"Error tracking visitor: {str(e)}")
+    ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+    if ',' in ip_address:
+        ip_address = ip_address.split(',')[0].strip()
+    
+    visitor = VisitorTracking(
+        ip_address=ip_address,
+        user_agent=request.user_agent.string,
+        page_visited=request.path,
+        referrer=request.referrer
+    )
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            db.session.add(visitor)
+            db.session.commit()
+            break
+        except Exception as e:
+            db.session.rollback()
+            if attempt == max_retries - 1:
+                print(f"Failed to track visitor after {max_retries} attempts: {str(e)}")
+            continue
 
 @limiter.limit("10 per minute")
 @main.route('/', methods=['GET'])
@@ -68,8 +73,6 @@ def index():
 
 @main.route('/get_services_for_main_page', methods=['GET'])
 def get_services_for_main_page():
-    from __init__ import ProvideServices, FilterList
-    
     try:
         filters = FilterList.query.all()
         
@@ -102,8 +105,6 @@ def login():
 def authtificated_user(): 
     if current_user.is_authenticated:
         return redirect(url_for('main.admin_board', user_id=current_user.id))
-    
-    from __init__ import User
     data = request.get_json()
     
     username = data.get('username')
@@ -158,14 +159,14 @@ def logout():
 @limiter.limit("10 per minute")
 @main.route('/adminboard/<uuid:user_id>', methods=['GET'])
 @login_required
-def admin_board(user_id: UUID):
+def admin_board(user_id: str):
     if not current_user.is_authenticated:
         return jsonify({
             "success": False,
             "message": "Запрещен переход по ссылке"
         }), 401
     
-    if current_user.id != user_id:
+    if str(current_user.id) != str(user_id):
         return jsonify({
             "success": False,
             "message": "Запрещен переход по ссылке"
@@ -178,8 +179,6 @@ def admin_board(user_id: UUID):
 @login_required
 @check_access('manager')
 def load_provide_services():
-    from __init__ import ProvideServices, FilterList
-    
     allServices = [service.to_dict() for service in ProvideServices.query.all()]
     filterList = [filter_item.to_dict() for filter_item in FilterList.query.all()]
     
@@ -193,8 +192,6 @@ def load_provide_services():
 @login_required
 @check_access('moder')
 def add_service():
-    from __init__ import ProvideServices, db
-    
     data = request.get_json()
     
     try:
@@ -226,8 +223,6 @@ def add_service():
 @login_required
 @check_access('moder')
 def update_service():
-    from __init__ import ProvideServices, db
-    
     data = request.get_json()
     service_id = data.get('id')
     
@@ -264,8 +259,6 @@ def update_service():
 @login_required
 @check_access('tech')
 def delete_service(service_id):
-    from __init__ import ProvideServices, db
-    
     try:
         service = ProvideServices.query.get(service_id)
         if not service:
@@ -292,8 +285,6 @@ def delete_service(service_id):
 @login_required
 @check_access('manager')
 def get_service(service_id):
-    from __init__ import ProvideServices
-    
     service = ProvideServices.query.get(service_id)
     if not service:
         return jsonify({
@@ -319,8 +310,6 @@ def get_service(service_id):
 @login_required
 @check_access('moder')
 def add_filter():
-    from __init__ import FilterList, db
-    
     data = request.get_json()
     name = data.get('name')
     
@@ -350,8 +339,6 @@ def add_filter():
 @login_required
 @check_access('moder')
 def update_filter():
-    from __init__ import FilterList, db
-    
     data = request.get_json()
     filter_id = data.get('id')
     name = data.get('name')
@@ -388,8 +375,6 @@ def update_filter():
 @login_required
 @check_access('tech')
 def delete_filter(filter_id):
-    from __init__ import FilterList, ProvideServices, db
-    
     try:
         other_filter = FilterList.query.filter_by(name="Другие").first()
         if not other_filter:
@@ -432,8 +417,6 @@ def delete_filter(filter_id):
 @login_required
 @check_access('manager')
 def get_filter(filter_id):
-    from __init__ import FilterList
-    
     filter_item = FilterList.query.get(filter_id)
     if not filter_item:
         return jsonify({
@@ -453,7 +436,6 @@ def get_filter(filter_id):
 @login_required
 @check_access('manager')
 def get_request(request_id):
-    from __init__ import Requests, db
     try:
         request_item = Requests.query.get(UUID(request_id))
         if not request_item:
@@ -479,8 +461,6 @@ def get_request(request_id):
 @login_required
 @check_access('manager')
 def get_requests():
-    from __init__ import Requests
-    
     requests = [request.to_dict() for request in Requests.query.all()]
     
     return jsonify({
@@ -492,8 +472,6 @@ def get_requests():
 @login_required
 @check_access('manager')
 def update_request_status(request_id):
-    from __init__ import Requests, db
-    
     try:
         request_item = Requests.query.get(UUID(request_id))
         if not request_item:
@@ -515,9 +493,6 @@ def update_request_status(request_id):
 
 @main.route('/submit_order', methods=['POST'])
 def submit_order():
-    from __init__ import Requests, db, mail, BlockedContact
-    from flask_mail import Message
-    
     data = request.get_json()
     phone = data['phone']
     email = data.get('email')
@@ -557,22 +532,115 @@ def submit_order():
         # Отправляем письмо клиенту
         if data.get('email'):
             msg = Message(
-                subject="Ваша заявка принята",
-                recipients=[data['email']],
-                body=f"""Здравствуйте, {data['fullName']}!
-                Ваша заявка №{new_request.id} принята в обработку.
-                Мы свяжемся с вами в ближайшее время по телефону {data['phone']}.
-
-                Выбранные услуги:
-                {chr(10).join([f"- {item['name']} ({item['price']})" for item in data['services']])}
-
-                Комментарии:
-                {data['comments']}
-
-                С уважением,
-                Строительная компания "СтройГарант"
-                """
-            )
+    subject="Ваша заявка принята",
+    recipients=[data['email']],
+    html=f"""<!DOCTYPE html>
+        <html>
+        <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Ваша заявка принята</title>
+            <style>
+                body {{
+                    font-family: 'Arial', sans-serif;
+                    line-height: 1.6;
+                    color: #333333;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }}
+                .header {{
+                    background-color: #2c3e50;
+                    padding: 20px;
+                    text-align: center;
+                    color: white;
+                    border-radius: 5px 5px 0 0;
+                }}
+                .content {{
+                    padding: 20px;
+                    background-color: #f9f9f9;
+                    border-left: 1px solid #e0e0e0;
+                    border-right: 1px solid #e0e0e0;
+                }}
+                .footer {{
+                    padding: 15px;
+                    text-align: center;
+                    font-size: 12px;
+                    color: #777777;
+                    background-color: #ecf0f1;
+                    border-radius: 0 0 5px 5px;
+                    border-left: 1px solid #e0e0e0;
+                    border-right: 1px solid #e0e0e0;
+                    border-bottom: 1px solid #e0e0e0;
+                }}
+                h1 {{
+                    color: #2c3e50;
+                    margin-top: 0;
+                }}
+                .services-list {{
+                    background-color: white;
+                    padding: 15px;
+                    border-radius: 5px;
+                    margin: 15px 0;
+                    border: 1px solid #e0e0e0;
+                }}
+                .request-id {{
+                    font-weight: bold;
+                    color: #e74c3c;
+                }}
+                .signature {{
+                    margin-top: 30px;
+                    font-style: italic;
+                }}
+                .highlight {{
+                    background-color: #fffde7;
+                    padding: 10px;
+                    border-left: 3px solid #ffd600;
+                    margin: 10px 0;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Строительная компания "СтройГарант"</h1>
+            </div>
+            
+            <div class="content">
+                <h2>Уважаемый(ая), {data['fullName']}!</h2>
+                
+                <p>Благодарим вас за обращение в нашу компанию. Ваша заявка <span class="request-id">№{new_request.id}</span> успешно принята в обработку.</p>
+                
+                <div class="highlight">
+                    <p>Мы свяжемся с вами в ближайшее время по телефону: <strong>{data['phone']}</strong></p>
+                </div>
+                
+                <h3>Детали вашей заявки:</h3>
+                
+                <div class="services-list">
+                    <h4>Выбранные услуги:</h4>
+                    <ul>
+                        {''.join([f"<li>{item['name']} <strong>({item['price']} руб.)</strong></li>" for item in data['services']])}
+                    </ul>
+                </div>
+                
+                {f'<div class="highlight"><h4>Ваши комментарии:</h4><p>{data["comments"]}</p></div>' if data.get('comments') else ''}
+                
+                <p class="signature">
+                    С уважением,<br>
+                    строительная организация<br>
+                    <small>Телефон: +7 (918) 644-24-33<br>
+                    <small>Телефон: +7 (918) 995-59-59<br>
+                    Email: stroy-home@kr-stroy-home.ru</small>
+                </p>
+            </div>
+            
+            <div class="footer">
+                <p>© {datetime.now().year} Строительная компания "СтройГарант". Все права защищены.</p>
+                <p>Это письмо отправлено автоматически, пожалуйста, не отвечайте на него.</p>
+            </div>
+        </body>
+        </html>"""
+        )
             mail.send(msg)
         
         return jsonify({"success": True, "message": "Заявка успешно создана"})
@@ -585,8 +653,6 @@ def submit_order():
 @login_required
 @check_access('manager')
 def dashboard_stats():
-    from __init__ import Requests, db, VisitorTracking
-    
     try:
         # Статистика посещений
         total_visitors = VisitorTracking.query.count()
@@ -691,8 +757,6 @@ def calculate_percentage_change(old_value, new_value):
 """ Обратка запросов для вопросов категорий """
 @main.route('/adminboard/get_questions', methods=['GET'])
 def get_questions():
-    from __init__ import ServiceQuestion, FilterList
-    
     questions = ServiceQuestion.query.join(FilterList).all()
     result = []
     
@@ -715,8 +779,6 @@ def get_questions():
 @login_required
 @check_access('moder')
 def add_questions():
-    from __init__ import ServiceQuestion, db
-    
     data = request.get_json()
     filter_id = data.get('filter_id')
     questions = data.get('questions', [])
@@ -751,8 +813,6 @@ def add_questions():
 @login_required
 @check_access('moder')
 def update_question():
-    from __init__ import ServiceQuestion, db
-    
     data = request.get_json()
     question_id = data.get('id')
     
@@ -786,8 +846,6 @@ def update_question():
 @login_required
 @check_access('tech')
 def delete_question(question_id):
-    from __init__ import ServiceQuestion, db
-    
     try:
         question = ServiceQuestion.query.get(question_id)
         if not question:
@@ -814,8 +872,6 @@ def delete_question(question_id):
 @login_required
 @check_access('manager')
 def get_question(question_id):
-    from __init__ import ServiceQuestion, FilterList
-    
     question = ServiceQuestion.query.get(question_id)
     if not question:
         return jsonify({
@@ -838,7 +894,6 @@ def get_question(question_id):
 @login_required
 @check_access('manager')
 def get_users():
-    from __init__ import User, Role, db
     search = request.args.get('search', '')
     
     query = User.query
@@ -869,8 +924,6 @@ def get_users():
 @login_required
 @check_access('manager')
 def get_user(user_id):
-    from __init__ import User, Role
-
     if not current_user.is_admin():
         return jsonify({"success": False, "message": "Недостаточно прав"}), 403
     
@@ -889,8 +942,6 @@ def get_user(user_id):
 def add_user():
     if not current_user.is_admin():
         return jsonify({"success": False, "message": "Недостаточно прав"}), 403
-    
-    from __init__ import User, db
     data = request.get_json()
     
     if User.query.filter_by(email=data['email']).first():
@@ -931,7 +982,6 @@ def add_user():
 @login_required
 @check_access('admin')
 def update_user():
-    from __init__ import User, db
     data = request.get_json()
     
     try:
@@ -972,8 +1022,6 @@ def delete_user(user_id):
     if not current_user.is_admin():
         return jsonify({"success": False, "message": "Недостаточно прав"}), 403
     
-    from __init__ import User, db
-    
     try:
         user = User.query.get(UUID(user_id))
         if not user:
@@ -1000,8 +1048,6 @@ def delete_user(user_id):
 @login_required
 @check_access('admin')
 def block_user(user_id):
-    from __init__ import User, db
-    
     try:
         user = User.query.get(UUID(user_id))
         if not user:
@@ -1022,8 +1068,6 @@ def block_user(user_id):
 @login_required
 @check_access('admin')
 def unblock_user(user_id):
-    from __init__ import User, db
-    
     try:
         user = User.query.get(UUID(user_id))
         if not user:
@@ -1041,11 +1085,9 @@ def unblock_user(user_id):
 @login_required
 @check_access('manager')
 def get_subscribers():
-    from __init__ import db
     if not current_user.is_admin:
         return jsonify({"success": False, "message": "Недостаточно прав"}), 403
-    
-    from __init__ import Requests
+
     search = request.args.get('search', '')
     
     query = Requests.query.filter(
@@ -1081,9 +1123,6 @@ def send_newsletter():
     if not current_user.is_admin:
         return jsonify({"success": False, "message": "Недостаточно прав"}), 403
     
-    from __init__ import Requests, mail
-    from flask_mail import Message
-    
     data = request.get_json()
     subject = data.get('subject')
     content = data.get('content')
@@ -1101,7 +1140,113 @@ def send_newsletter():
             msg = Message(
                 subject=subject,
                 recipients=[subscriber.email],
-                body=f"Уважаемый {subscriber.full_name or 'клиент'}!\n\n{content}\n\nС уважением,\nСтроительная компания 'СтройГарант'"
+                html=f"""<!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>{subject}</title>
+                        <style>
+                            body {{
+                                font-family: 'Arial', sans-serif;
+                                line-height: 1.6;
+                                color: #333333;
+                                max-width: 600px;
+                                margin: 0 auto;
+                                padding: 20px;
+                            }}
+                            .header {{
+                                background-color: #2c3e50;
+                                padding: 25px;
+                                text-align: center;
+                                color: white;
+                                border-radius: 5px 5px 0 0;
+                            }}
+                            .logo {{
+                                font-size: 24px;
+                                font-weight: bold;
+                                margin-bottom: 10px;
+                            }}
+                            .content {{
+                                padding: 25px;
+                                background-color: #f9f9f9;
+                                border-left: 1px solid #e0e0e0;
+                                border-right: 1px solid #e0e0e0;
+                            }}
+                            .footer {{
+                                padding: 20px;
+                                text-align: center;
+                                font-size: 12px;
+                                color: #777777;
+                                background-color: #ecf0f1;
+                                border-radius: 0 0 5px 5px;
+                                border: 1px solid #e0e0e0;
+                                border-top: none;
+                            }}
+                            h1 {{
+                                color: #2c3e50;
+                                margin-top: 0;
+                                font-size: 22px;
+                            }}
+                            .greeting {{
+                                font-size: 18px;
+                                margin-bottom: 20px;
+                            }}
+                            .message-content {{
+                                background-color: white;
+                                padding: 20px;
+                                border-radius: 5px;
+                                margin: 20px 0;
+                                border: 1px solid #e0e0e0;
+                                line-height: 1.7;
+                            }}
+                            .signature {{
+                                margin-top: 30px;
+                                border-top: 1px solid #e0e0e0;
+                                padding-top: 15px;
+                                font-style: italic;
+                            }}
+                            .unsubscribe {{
+                                font-size: 11px;
+                                color: #999;
+                                margin-top: 30px;
+                                text-align: center;
+                            }}
+                            .highlight {{
+                                background-color: #f8f4e5;
+                                padding: 15px;
+                                border-left: 4px solid #e67e22;
+                                margin: 15px 0;
+                            }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                        </div>
+                        
+                        <div class="content">
+                            <div class="greeting">Уважаемый(ая) {subscriber.full_name or 'клиент'}!</div>
+                            
+                            <div class="message-content">
+                                {content.replace(chr(10), '<br>')}
+                            </div>
+                            
+                            <div class="signature">
+                                С уважением,<br>
+                                <strong>Стоительная организация"</strong><br>
+                                <small>Телефон: +7 (918) 644-24-33<br>
+                                <small>Телефон: +7 (918) 995-59-59<br>
+                                Email: stroy-home@kr-stroy-home.ru<br>
+                                Сайт: <a href="https://kr-stroy-home.ru/">kr-stroy-home.ru</a></small>
+                            </div>
+                        </div>
+                        
+                        <div class="footer">
+                            <p>© {datetime.now().year} Строительная организация. Все права защищены.</p>
+                            <p>Это письмо отправлено автоматически, пожалуйста, не отвечайте на него.</p>
+                        </div>
+                    </body>
+                    </html>"""
             )
             mail.send(msg)
         
@@ -1119,7 +1264,6 @@ def send_newsletter():
 @login_required
 @check_access('manager')
 def update_activity():
-    from __init__ import moscow_tz, db
     try:
         current_user.last_activity = datetime.now(moscow_tz)
         db.session.commit()
@@ -1133,8 +1277,6 @@ def update_activity():
 @login_required
 @check_access('moder')
 def block_contact(request_id):
-    from __init__ import Requests, BlockedContact, db
-    
     try:
         request_item = Requests.query.get(UUID(request_id))
         if not request_item:
@@ -1168,7 +1310,6 @@ def block_contact(request_id):
 @login_required
 @check_access('manager')
 def get_blocked_contacts():
-    from __init__ import BlockedContact, db
     search = request.args.get('search', '')
     
     query = BlockedContact.query.order_by(BlockedContact.blocked_at.desc())
@@ -1197,8 +1338,6 @@ def get_blocked_contacts():
 @login_required
 @check_access('tech')
 def unblock_contact(contact_id):
-    from __init__ import BlockedContact, db
-    
     try:
         contact = BlockedContact.query.get(contact_id)
         if not contact:
