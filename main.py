@@ -1,15 +1,22 @@
 from flask import render_template, redirect, url_for, request, Blueprint, jsonify
 from flask_login import login_user, login_required, logout_user, current_user
-import os
+import os, json, uuid
 from uuid import UUID
 from datetime import datetime, timedelta
 from collections import defaultdict
 from flask_mail import Message
+from werkzeug.utils import secure_filename
 
 from models import User, Role, ProvideServices, FilterList, ServiceQuestion, Requests, VisitorTracking, BlockedContact
 from __init__ import db, login_manager, limiter, mail, moscow_tz
 
 main = Blueprint('main', __name__)
+
+def allowed_file(filename):
+    from __init__ import create_app
+    app = create_app()
+    return '.' in filename and \
+        filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def check_access(required_role):
     def decorator(f):
@@ -37,39 +44,43 @@ def check_access(required_role):
 
 @main.before_request
 def track_visitor():
-    excluded_paths = ['static', 'adminboard', 'favicon.ico']
-    
-    if any(path in request.path for path in excluded_paths):
+    if request.path != '/':
         return
     
     ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
     if ',' in ip_address:
         ip_address = ip_address.split(',')[0].strip()
     
+    last_visit = VisitorTracking.query.filter_by(ip_address=ip_address)\
+        .order_by(VisitorTracking.visit_date.desc()).first()
+    
+    if last_visit and (datetime.now() - last_visit.visit_date) < timedelta(minutes=10):
+        return
+    
     visitor = VisitorTracking(
         ip_address=ip_address,
         user_agent=request.user_agent.string,
-        page_visited=request.path,
+        page_visited='/',  
         referrer=request.referrer
     )
     
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            db.session.add(visitor)
-            db.session.commit()
-            break
-        except Exception as e:
-            db.session.rollback()
-            if attempt == max_retries - 1:
-                print(f"Failed to track visitor after {max_retries} attempts: {str(e)}")
-            continue
+    try:
+        db.session.add(visitor)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Failed to track visitor: {str(e)}")
+
+@main.errorhandler(401)
+def unauthorized_handler(e):
+    return redirect(url_for('main.login'))
 
 @limiter.limit("10 per minute")
 @main.route('/', methods=['GET'])
 def index():
     nonce = os.urandom(16).hex()
-    return render_template('index.html', nonce=nonce)
+    services = ProvideServices.query.all()
+    return render_template('index.html', nonce=nonce, services=services)
 
 @main.route('/get_services_for_main_page', methods=['GET'])
 def get_services_for_main_page():
@@ -148,12 +159,7 @@ def authtificated_user():
 @login_required
 def logout():
     logout_user()
-    next_url = url_for('main.index')
-    return jsonify({
-        "success": True,
-        "message": "Вы вышли из аккаунта.",
-        "next": next_url
-    }), 200
+    return redirect(url_for('main.index'))
 
 
 @limiter.limit("10 per minute")
@@ -188,13 +194,25 @@ def load_provide_services():
         "filter_list": filterList
     })
     
-@main.route('/adminboard/add_service', methods=['PUT'])
+@main.route('/adminboard/add_service', methods=['POST'])
 @login_required
 @check_access('moder')
 def add_service():
-    data = request.get_json()
+    from __init__ import create_app
+    
+    app = create_app()
+    unique_filename = None
     
     try:
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+        
+        data = json.loads(request.form.get('data'))
+        
         new_service = ProvideServices(
             name=data.get('name'),
             description=data.get('description', ''),
@@ -202,31 +220,40 @@ def add_service():
             cost=data.get('cost'),
             duraction_work=data.get('duraction_work'),
             materials=data.get('materials'),
-            include_service=data.get('include_service')
+            include_service=data.get('include_service'),
+            img_url=unique_filename if unique_filename else None  
         )
+        
+        print(unique_filename)
         
         db.session.add(new_service)
         db.session.commit()
         
-        return jsonify({
-            "success": True,
-            "message": "Услуга успешно добавлена"
-        }), 201
+        return jsonify({"success": True, "message": "Услуга успешно добавлена"}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @main.route('/adminboard/update_service', methods=['POST'])
 @login_required
 @check_access('moder')
 def update_service():
-    data = request.get_json()
-    service_id = data.get('id')
+    from __init__ import create_app
+    
+    app = create_app()
+    unique_filename = None
     
     try:
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+        
+        data = json.loads(request.form.get('data'))
+        service_id = data.get('id')
+        
         service = ProvideServices.query.get(service_id)
         if not service:
             return jsonify({
@@ -241,8 +268,24 @@ def update_service():
         service.duraction_work = data.get('duraction_work', service.duraction_work)
         service.materials = data.get('materials', service.materials)
         service.include_service = data.get('include_service', service.include_service)
+
+        if unique_filename:
+            if service.img_url:
+                try:
+                    old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], service.img_url)
+                    if os.path.exists(old_file_path):
+                        os.remove(old_file_path)
+                except Exception as e:
+                    print(f"Ошибка при удалении старого изображения: {str(e)}")
+            
+            service.img_url = unique_filename
+        
+        else: 
+            service.img_url = None
         
         db.session.commit()
+        
+        print(service.img_url)
         
         return jsonify({
             "success": True,
@@ -294,16 +337,7 @@ def get_service(service_id):
         
     return jsonify({
         "success": True,
-        "service": {
-            "id": service.id,
-            "name": service.name,
-            "description": service.description,
-            "filter_name": service.filter_name,
-            "cost": service.cost,
-            "duraction_work": service.duraction_work,
-            "materials": service.materials,
-            "include_service": service.include_service
-        }
+        "service": service.to_dict()
     }), 200
 
 @main.route('/adminboard/add_filter', methods=['PUT'])
@@ -461,7 +495,7 @@ def get_request(request_id):
 @login_required
 @check_access('manager')
 def get_requests():
-    requests = [request.to_dict() for request in Requests.query.all()]
+    requests = [request.to_dict() for request in Requests.query.order_by(Requests.created_at.desc()).all()]
     
     return jsonify({
         "success": True,
@@ -630,12 +664,12 @@ def submit_order():
                     строительная организация<br>
                     <small>Телефон: +7 (918) 644-24-33<br>
                     <small>Телефон: +7 (918) 995-59-59<br>
-                    Email: stroy-home@kr-stroy-home.ru</small>
+                    Email: kr-stroy-home@mail.ru</small>
                 </p>
             </div>
             
             <div class="footer">
-                <p>© {datetime.now().year} Строительная компания "СтройГарант". Все права защищены.</p>
+                <p>© {datetime.now().year} Строительная организация. Все права защищены.</p>
                 <p>Это письмо отправлено автоматически, пожалуйста, не отвечайте на него.</p>
             </div>
         </body>
@@ -1236,7 +1270,7 @@ def send_newsletter():
                                 <strong>Стоительная организация"</strong><br>
                                 <small>Телефон: +7 (918) 644-24-33<br>
                                 <small>Телефон: +7 (918) 995-59-59<br>
-                                Email: stroy-home@kr-stroy-home.ru<br>
+                                Email: kr-stroy-home@mail.ru<br>
                                 Сайт: <a href="https://kr-stroy-home.ru/">kr-stroy-home.ru</a></small>
                             </div>
                         </div>
@@ -1259,7 +1293,7 @@ def send_newsletter():
             "success": False,
             "message": str(e)
         }), 500
-        
+
 @main.route('/update_activity', methods=['POST'])
 @login_required
 @check_access('manager')
@@ -1271,7 +1305,6 @@ def update_activity():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
-    
 
 @main.route('/adminboard/block_contact/<string:request_id>', methods=['POST'])
 @login_required
@@ -1351,3 +1384,32 @@ def unblock_contact(contact_id):
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
     
+
+@main.route('/adminboard/delete_request/<string:request_id>', methods=['DELETE'])
+@login_required
+@check_access('tech')
+def delete_request(request_id):
+    try:
+        request_item = Requests.query.get(UUID(request_id))
+        if not request_item:
+            return jsonify({"success": False, "message": "Заявка не найдена"}), 404
+        
+        if request_item.status not in ['Завершена', 'Отклонена']:
+            return jsonify({
+                "success": False, 
+                "message": "Можно удалять только завершенные или отклоненные заявки"
+            }), 400
+            
+        db.session.delete(request_item)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": "Заявка успешно удалена"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500

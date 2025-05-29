@@ -23,6 +23,11 @@ document.addEventListener('DOMContentLoaded', function() {
     updateCartUI();
 });
 
+function truncateDescription(text, maxLength = 80) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
 function loadServicesAndFilters() {
     fetch('/get_services_for_main_page')
     .then(response => response.json())
@@ -138,17 +143,33 @@ function renderServices(servicesByFilter) {
                     </div>
                 `;
             }
+
+            console.log
+
+            const imageUrl = service.img_url !== null
+            ? `${service.img_url}`
+            : `./static/img/i.png`;
             
             const serviceItem = document.createElement('div');
             serviceItem.className = 'service-item';
             serviceItem.innerHTML = `
-                <div class="service-description-popup">
-                    ${service.description || 'Описание отсутствует'}
+                <div class="service-image-container">
+                    <img src="${imageUrl}" class="service-image">
                 </div>
                 <div class="service-info">
                     <h4>${service.name}</h4>
                     <p class="price">От ${service.cost}</p>
                     <p class="duration"><i class="fas fa-clock"></i> Срок: ${service.duraction_work || 'уточняйте'}</p>
+                </div>
+                <div class="service-description-container">
+                    <div class="service-description-short">
+                        ${service.description ? truncateDescription(service.description) : 'Описание отсутствует'}
+                    </div>
+                    <div class="service-description-full" style="display: none;">
+                        ${service.description || 'Описание отсутствует'}
+                    </div>
+                    ${service.description && service.description.length > 100 ? 
+                        '<button class="toggle-description-btn">Подробнее</button>' : ''}
                 </div>
                 ${materialsHtml}
                 ${includedHtml}
@@ -215,6 +236,24 @@ function renderServices(servicesByFilter) {
                 price: servicePrice,
                 tab: tabId
             });
+        });
+    });
+    document.querySelectorAll('.toggle-description-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const container = this.closest('.service-description-container');
+            const short = container.querySelector('.service-description-short');
+            const full = container.querySelector('.service-description-full');
+            
+            if (full.style.display === 'none') {
+                short.style.display = 'none';
+                full.style.display = 'block';
+                this.textContent = 'Скрыть';
+            } else {
+                short.style.display = 'block';
+                full.style.display = 'none';
+                this.textContent = 'Подробнее';
+            }
         });
     });
 }
@@ -405,6 +444,9 @@ async function showQuestionsModal(filters, onComplete) {
             
             modal.style.display = 'flex';
         }
+        else {
+            onComplete();
+        }
     });
     return true;
 }
@@ -529,13 +571,8 @@ function proceedOrderSubmission() {
 
 
 function validateOrderForm(formData) {
-    if (!formData.fullName || !formData.phone) {
+    if (!formData.fullName || !formData.phone || !formData.comments) {
         alert('Пожалуйста, заполните обязательные поля (ФИО и Телефон)');
-        return false;
-    }
-    
-    if (formData.comments.length < 20) {
-        alert('Пожалуйста, подробнее опишите что у вас уже есть (например: фундамент, стены и т.д.)');
         return false;
     }
     
@@ -609,3 +646,4 @@ if (serviceTabs) {
         });
     });
 }
+

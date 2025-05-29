@@ -6,7 +6,7 @@ section {
     overflow-y: auto;
     scroll-snap-align: center;
     scroll-snap-stop: always;
-    padding: 80px 0;
+    padding: 100px 0px;
     width: 100%; 
     display: flex;
     flex-direction: column;
@@ -77,10 +77,9 @@ nav a:hover {
 
 /* Секция об информации о компании */
 .construction-faq {
-    margin: 7rem auto;
     font-family: 'Roboto', sans-serif;
     color: var(--primary-text-color);
-    height: 100vh;
+    height: 110vh;
     overflow-y: auto;
     scroll-margin-top: 75px;
     position: relative;
@@ -206,9 +205,8 @@ nav a:hover {
     font-family: 'Roboto', sans-serif;
     color: var(--primary-text-color);
     width: 100%;
-    height: 100vh;
+    height: 110vh;
     overflow-y: auto;
-    margin: 8rem auto;
     position: relative;
 }
 
@@ -329,6 +327,7 @@ nav a:hover {
     height: 710px;
     overflow-y: auto;
 }
+
 .service-item {
     background: var(--secondary-bg-color);
     padding: 20px;
@@ -341,7 +340,18 @@ nav a:hover {
     animation: fadeIn 0.3s ease;
     position: relative;
     z-index: 1;
-    max-height: 300px;
+    max-height: 670px;
+}
+
+.service-image-container {
+    overflow: hidden;
+}
+
+.service-image {
+    width: 100%;
+    max-width: 500px;
+    height: 240px;
+    border-radius: 5px;
 }
 
 .service-info h4 {
@@ -1194,8 +1204,7 @@ nav a:hover {
     font-size: 1.2rem;
 }
 
-.social-button.vk { background: #4a76a8; }
-.social-button.tg { background: #2AABEE; }
+.social-button.whatsapp { background: #0a9d1e; }
 .social-button.yt { background: #FF0000; }
 
 .social-button:hover {
@@ -1319,7 +1328,7 @@ nav a:hover {
 
     .company-image-block img,
     .advantages-image-block img {
-        width: 100%;
+        width: 500px;
     }
 
     /* Уменьшаем текст */
@@ -1331,11 +1340,7 @@ nav a:hover {
     /* Услуги */
     .service-tabs {
         flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .service-list {
-        grid-template-columns: 1fr;
+        align-items: center;
     }
 
     /* Форма заказа */
@@ -1354,13 +1359,8 @@ nav a:hover {
         padding: 0;
     }
 
-    .construction-faq::before {
-        height: 200%;
-    }
-
     .footer-container {
         grid-template-columns: 1fr;
-
     }
 }
 
@@ -1446,11 +1446,6 @@ nav a:hover {
         cursor: pointer;
     }
 
-    .construction-faq, 
-    .services {
-        margin: 5rem auto;
-    }
-
     /* Скрываем материалы по умолчанию */
     .materials {
         display: none;
@@ -1470,13 +1465,33 @@ nav a:hover {
     }
 
     footer {
-        height: 100vh;
+        height: 103vh;
+    }
+
+    .services::before {
+        height: 110%;
+    }
+    .construction-faq::before {
+        height: 160%;
+    }
+
+    .service-list {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     }
 }
 
 @media (max-width: 576px) {
+    .service-list {
+        grid-template-columns: 1fr
+    }
+
     .section-heading {
         font-size: 22px;
+    }
+
+    .company-image-block img,
+    .advantages-image-block img {
+        width: 350px;
     }
 
     nav a {
@@ -1536,4 +1551,34 @@ nav a:hover {
 
 .menu-toggle.active i {
     transform: rotate(90deg);
+}
+
+.service-description-container {
+    margin: 10px 0;
+    position: relative;
+}
+
+.service-description-short {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.service-description-full {
+    display: none;
+}
+
+.toggle-description-btn {
+    background: none;
+    border: none;
+    color: var(--link-color);
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+    margin-top: 5px;
+    display: inline-block;
+}
+
+.toggle-description-btn:hover {
+    color: var(--link-hover);
+    text-decoration: none;
 }

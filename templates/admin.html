@@ -11,6 +11,10 @@
     font-src 'self';
     connect-src 'self';
     ">
+
+    <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
+    <link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico') }}" type="image/x-icon">
+
     <title>Строительные услуги</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/root.css') }}">
@@ -33,7 +37,7 @@
                 <div class="services-header">
                     <h2>Управление услугами</h2>
                     <div class="search-box">
-                        <input type="text" id="service-search" placeholder="Поиск услуг...">
+                        <input type="text" id="service-search" placeholder="Поиск услуг..." autocomplete="search">
                         <button id="add-service-btn">Добавить услугу</button>
                         <button id="add-question-btn" style='display:none;'> Добавить вопрос </button>
                         <button class="services-tab" id="questions-tabs" data-tab="questions">Переключить на вопросы</button>
@@ -62,27 +66,21 @@
                     </section>
                 </div>
             </div>
-            <div class="admin-content" id="orders">
+            <div id="orders" class="admin-content">
                 <div class="requests-header">
-                    <h2>Заявки клиентов</h2>
-                    <div class="search-box">
-                        <input type="text" id="request-search" placeholder="Поиск заявок...">
+                    <h2>Управление заявками</h2>
+                    <div class="requests-filters">
                         <select id="status-filter">
                             <option value="all">Все статусы</option>
-                            <option value="Новая">Новая</option>
-                            <option value="В рассмотрении">В рассмотрении</option>
-                            <option value="В работе">В работе</option>
-                            <option value="Завершена">Завершена</option>
+                            <option value="new">Новые</option>
+                            <option value="review">В рассмотрении</option>
+                            <option value="completed">Завершенные</option>
+                            <option value="reject">Отклоненные</option>
                         </select>
+                        <input type="text" id="request-search" placeholder="Поиск по заявкам...">
                     </div>
                 </div>
-                
-                <div class="recent-requests">
-                    <h3>Заявки за все время</h3>
-                    <div class="requests-table" id="recent-requests-table">
-                        <!-- Таблица будет заполнена динамически -->
-                    </div>
-                </div>
+                <div id="requests-container"></div>
             </div>
             <div class="admin-content" id="dashboard" style="display: none;">
                 <h2>Статистика сайта</h2>
@@ -371,53 +369,71 @@
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label for="service-name">Название услуги</label>
-                    <input type="text" id="service-name" required>
-                </div>
-                <div class="form-group">
-                    <label for="service-description">Описание услуги</label>
-                    <textarea type="text" id="service-description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="service-filter">Фильтр</label>
-                    <select id="service-filter" required></select>
-                </div>
-                <div class="form-group">
-                    <label for="service-cost">Стоимость</label>
-                    <div class="cost-input-container">
-                        <input type="number" id="service-cost" step="0.01" required>
-                        <select id="cost-type" class="cost-type-select">
-                            <option value="руб">руб</option>
-                            <option value="руб/м²">руб/м²</option>
-                            <option value="руб/п.м.">руб/п.м.</option>
-                            <option value="руб/шт">руб/шт</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="service-duration">Срок выполнения</label>
-                    <input type="text" id="service-duration">
-                </div>
-                <div class="form-group">
-                    <label>Материалы</label>
-                    <div class="list-container">
-                        <div id="materials-container">
-                            <!-- Материалы будут добавляться динамически -->
+                <div class="service-form-container">
+                    <div class="service-form-fields">
+                        <div class="form-group">
+                            <label for="service-name">Название услуги*</label>
+                            <input type="text" id="service-name" required maxlength="100">
+                            <div class="char-counter"><span id="name-counter">0</span>/100</div>
                         </div>
-                        <button type="button" id="add-material-btn" class="small-btn">
-                            <i class="fas fa-plus"></i> Добавить материал
-                        </button>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Включенные услуги</label>
-                    <div class="list-container">
-                        <div id="included-services-container">
-                            <!-- Включенные услуги будут добавляться динамически -->
+                        <div class="form-group">
+                            <label for="service-description">Описание услуги</label>
+                            <textarea type="text" id="service-description" maxlength="250"></textarea>
+                            <div class="char-counter"><span id="desc-counter">0</span>/250</div>
                         </div>
-                        <button type="button" id="add-included-service-btn" class="small-btn">
-                            <i class="fas fa-plus"></i> Добавить услугу
+                        <div class="form-group">
+                            <label for="service-filter">Фильтр*</label>
+                            <select id="service-filter" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="service-cost">Стоимость*</label>
+                            <div class="cost-input-container">
+                                <input type="number" id="service-cost" step="0.01" required maxlength="10">
+                                <select id="cost-type" class="cost-type-select">
+                                    <option value="руб">руб</option>
+                                    <option value="руб/м²">руб/м²</option>
+                                    <option value="руб/п.м.">руб/п.м.</option>
+                                    <option value="руб/шт">руб/шт</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="service-duration">Срок выполнения</label>
+                            <input type="text" id="service-duration" maxlength="50">
+                            <div class="char-counter"><span id="duration-counter">0</span>/50</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Материалы</label>
+                            <div class="list-container">
+                                <div id="materials-container">
+                                    <!-- Материалы будут добавляться динамически -->
+                                </div>
+                                <button type="button" id="add-material-btn" class="small-btn">
+                                    <i class="fas fa-plus"></i> Добавить материал
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Включенные услуги</label>
+                            <div class="list-container">
+                                <div id="included-services-container">
+                                    <!-- Включенные услуги будут добавляться динамически -->
+                                </div>
+                                <button type="button" id="add-included-service-btn" class="small-btn">
+                                    <i class="fas fa-plus"></i> Добавить услугу
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="service-image-preview">
+                        <label class="image-upload-btn">
+                            <i class="fas fa-upload"></i> Загрузить изображение
+                            <input type="file" id="service-image" accept="image/*">
+                        </label>
+                        <div class="image-upload-text">Размер изображения: до 16 МБ<br>Форматы: JPG, PNG</div>
+                        <img id="image-preview" src="" alt="Предпросмотр изображения">
+                        <button class="remove-image-btn" id="remove-image-btn">
+                            <i class="fas fa-trash"></i> Удалить изображение
                         </button>
                     </div>
                 </div>
@@ -447,7 +463,11 @@
         </div>
     </div>
     </div>
-    
+
+    <div id="loader" class="loader-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>

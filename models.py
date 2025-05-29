@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_login import LoginManager, UserMixin, current_user
 import uuid
-import json
+from flask import url_for
 
 moscow_tz = ZoneInfo('Europe/Moscow')
 
@@ -66,6 +66,7 @@ class ProvideServices(db.Model):
     duraction_work = db.Column(db.String(20), nullable=True)
     materials = db.Column(db.JSON, nullable=True)
     include_service = db.Column(db.JSON, nullable=True)
+    img_url = db.Column(db.Text, nullable=True)
     
     ft_name = db.relationship('FilterList', backref=db.backref('provide_services', lazy=True))
     
@@ -78,7 +79,8 @@ class ProvideServices(db.Model):
             'cost': self.cost,
             'duraction_work': self.duraction_work,
             'materials': self.materials,
-            'include_service': self.include_service
+            'include_service': self.include_service,
+            'img_url': url_for('static', filename=f'uploads/services/{self.img_url}', _external=True) if self.img_url != None else None
         }
 
 class FilterList(db.Model):

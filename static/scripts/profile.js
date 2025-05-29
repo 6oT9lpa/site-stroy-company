@@ -355,7 +355,52 @@ function showAddServiceModal() {
     document.getElementById('service-duration').value = '';
     document.getElementById('materials-container').innerHTML = '';
     document.getElementById('included-services-container').innerHTML = '';
-    
+    document.getElementById('service-image').value = '';
+    document.getElementById('image-preview').src = '';
+    document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('remove-image-btn').style.display = 'none';
+
+    document.getElementById('service-image').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const preview = document.getElementById('image-preview');
+                preview.src = event.target.result;
+                preview.style.display = 'block';
+                document.getElementById('remove-image-btn').style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    document.getElementById('remove-image-btn').addEventListener('click', function() {
+        document.getElementById('service-image').value = '';
+        document.getElementById('image-preview').src = '';
+        document.getElementById('image-preview').style.display = 'none';
+        this.style.display = 'none';
+    });
+
+    function setupCharCounter(inputId, counterId, maxLength) {
+        const input = document.getElementById(inputId);
+        const counter = document.getElementById(counterId);
+        
+        input.addEventListener('input', function() {
+            const length = this.value.length;
+            counter.textContent = length;
+            
+            if (length > maxLength * 0.9) {
+                counter.classList.add('warning');
+            } else {
+                counter.classList.remove('warning');
+            }
+        });
+    }
+
+    setupCharCounter('service-name', 'name-counter', 100);
+    setupCharCounter('service-description', 'desc-counter', 250);
+    setupCharCounter('service-duration', 'duration-counter', 50);
+
     fetch('/adminboard/load_all_provide_service')
         .then(response => response.json())
         .then(data => {
@@ -389,29 +434,46 @@ function showAddServiceModal() {
             showNotification('Заполните обязательные поля', 'error');
             return;
         }
-        
-        fetch('/adminboard/add_service', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(serviceData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('Услуга успешно добавлена', 'success');
-                loadServicesAndFilters();
-                modal.style.display = 'none';
-            } else {
-                showNotification(data.message || 'Ошибка при добавлении услуги', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Ошибка при добавлении услуги', 'error');
-        });
+
+        saveServiceWithImage(serviceData, false);
     };
+}
+
+// В функции сохранения услуги добавим обработку изображения
+function saveServiceWithImage(serviceData, isEdit = false) {
+    const formData = new FormData();
+    const imageInput = document.getElementById('service-image');
+    const loader = document.getElementById('loader'); // добавлено
+
+    if (imageInput.files[0]) {
+        formData.append('image', imageInput.files[0]);
+    }
+
+    formData.append('data', JSON.stringify(serviceData));
+
+    const endpoint = isEdit ? '/adminboard/update_service' : '/adminboard/add_service';
+
+    loader.style.display = 'flex';
+
+    fetch(endpoint, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        loader.style.display = 'none';
+        if (data.success) {
+            showNotification(isEdit ? 'Услуга обновлена' : 'Услуга добавлена', 'success');
+            loadServicesAndFilters();
+        } else {
+            showNotification(data.message || 'Ошибка сохранения', 'error');
+        }
+    })
+    .catch(error => {
+        loader.style.display = 'none';
+        console.error('Error:', error);
+        showNotification('Ошибка сохранения услуги', 'error');
+    });
 }
 
 function showAddFilterModal() {
@@ -472,7 +534,67 @@ function showEditServiceModal(serviceId) {
                 
                 document.getElementById('service-duration').value = service.duraction_work || '';
                 document.getElementById('service-duration').value = service.duraction_work || '';
+
+                const imageInput = document.getElementById('service-image');
+                imageInput.value = '';
+
+                const imagePreview = document.getElementById('image-preview');
+                imagePreview.src = '';
+                imagePreview.style.display = 'none';
+
+                const removeBtn = document.getElementById('remove-image-btn');
+                removeBtn.style.display = 'none';
                 
+                document.getElementById('service-image').addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const preview = document.getElementById('image-preview');
+                            preview.src = event.target.result;
+                            preview.style.display = 'block';
+                            document.getElementById('remove-image-btn').style.display = 'block';
+                        }
+                        reader.readAsDataURL(file);
+                    }
+                });
+                if (service.img_url) {
+                    document.getElementById('image-preview').src = service.img_url;
+                    document.getElementById('image-preview').style.display = 'block';
+                    document.getElementById('remove-image-btn').style.display = 'block';
+                    const preview = document.getElementById('image-preview');
+                    preview.src = service.img_url;
+                    preview.style.display = 'block';
+                    document.getElementById('remove-image-btn').style.display = 'block';
+                }
+
+                document.getElementById('remove-image-btn').addEventListener('click', function() {
+                    document.getElementById('service-image').value = '';
+                    document.getElementById('image-preview').src = '';
+                    document.getElementById('image-preview').style.display = 'none';
+                    this.style.display = 'none';
+                });
+
+                function setupCharCounter(inputId, counterId, maxLength) {
+                    const input = document.getElementById(inputId);
+                    const counter = document.getElementById(counterId);
+                    
+                    input.addEventListener('input', function() {
+                        const length = this.value.length;
+                        counter.textContent = length;
+                        
+                        if (length > maxLength * 0.9) {
+                            counter.classList.add('warning');
+                        } else {
+                            counter.classList.remove('warning');
+                        }
+                    });
+                }
+
+                setupCharCounter('service-name', 'name-counter', 100);
+                setupCharCounter('service-description', 'desc-counter', 250);
+                setupCharCounter('service-duration', 'duration-counter', 50);
+
                 const materialsContainer = document.getElementById('materials-container');
                 materialsContainer.innerHTML = '';
                 
@@ -560,28 +682,7 @@ function showEditServiceModal(serviceId) {
                         showNotification('Заполните обязательные поля', 'error');
                         return;
                     }
-                    
-                    fetch('/adminboard/update_service', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(serviceData)
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            showNotification('Услуга успешно обновлена', 'success');
-                            loadServicesAndFilters();
-                            modal.style.display = 'none';
-                        } else {
-                            showNotification(data.message || 'Ошибка при обновлении услуги', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        showNotification('Ошибка при обновлении услуги', 'error');
-                    });
+                    saveServiceWithImage(serviceData, true);
                 };
             } else {
                 showNotification(data.message || 'Ошибка загрузки данных услуги', 'error');
@@ -819,24 +920,27 @@ function updateRequestStatus(requestId, status) {
     });
 }
 
-document.getElementById('status-filter').addEventListener('change', filterRequests);
-document.getElementById('request-search').addEventListener('input', filterRequests);
-
 function filterRequests() {
-    const statusFilter = document.getElementById('status-filter').value;
     const searchTerm = document.getElementById('request-search').value.toLowerCase();
+    const statusFilter = document.getElementById('status-filter').value;
     
     document.querySelectorAll('.request-card').forEach(card => {
-        const cardStatus = card.dataset.status;
         const cardText = card.textContent.toLowerCase();
+        const cardStatus = card.dataset.status;
         
-        const statusMatch = statusFilter === 'all' || cardStatus === statusFilter;
-        const searchMatch = searchTerm === '' || cardText.includes(searchTerm);
+        const matchesSearch = searchTerm === '' || cardText.includes(searchTerm);
+        const matchesStatus = statusFilter === 'all' || cardStatus === statusFilter;
         
-        card.style.display = (statusMatch && searchMatch) ? 'block' : 'none';
+        if (matchesSearch && matchesStatus) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
     });
 }
 
+document.getElementById('status-filter').addEventListener('change', filterRequests);
+document.getElementById('request-search').addEventListener('input', filterRequests);
 
 function loadDashboardData() {
     fetch('/adminboard/dashboard_stats')
@@ -1008,51 +1112,115 @@ function renderCharts(chartData) {
 }
 
 function renderRecentRequests(requests) {
-    const table = document.getElementById('recent-requests-table');
-    table.innerHTML = '';
+    const container = document.getElementById('requests-container');
+    container.innerHTML = '';
     
-    const tableEl = document.createElement('table');
-    tableEl.className = 'requests-table';
+    if (requests.length === 0) {
+        container.innerHTML = '<p class="empty-message">Нет заявок</p>';
+        return;
+    }
     
-    const thead = document.createElement('thead');
-    thead.innerHTML = `
-        <tr>
-            <th>ID</th>
-            <th>Дата</th>
-            <th>Клиент</th>
-            <th>Телефон</th>
-            <th>Услуги</th>
-            <th>Статус</th>
-            <th>Действия</th>
-        </tr>
-    `;
-    tableEl.appendChild(thead);
-    
-    const tbody = document.createElement('tbody');
     requests.forEach(request => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${request.id.substring(0, 8)}</td>
-            <td>${new Date(request.created_at).toLocaleDateString()}</td>
-            <td>${request.full_name}</td>
-            <td>${request.phone}</td>
-            <td>${request.services.map(s => s.name).join(', ')}</td>
-            <td><span class="status-badge status-${getStatusClass(request.status)}">${request.status}</span></td>
-            <td><button class="view-details" data-id="${request.id}">Подробнее</button></td>
+        const requestCard = document.createElement('div');
+        requestCard.className = 'request-card';
+        requestCard.dataset.status = getStatusClass(request.status);
+        
+        let servicesHtml = '';
+        if (request.services && request.services.length > 0) {
+            servicesHtml = request.services.map(service => 
+                `<span class="service-tag">${service.name}</span>`
+            ).join('');
+        }
+        
+        requestCard.innerHTML = `
+            <div class="request-header">
+                <span class="request-id">№${request.id.substring(0, 8)}</span>
+                <span class="request-status status-${getStatusClass(request.status)}">${request.status}</span>
+            </div>
+            <div class="request-body">
+                <p><strong>${request.full_name}</strong></p>
+                <p>${request.phone}</p>
+                <p>${request.email || ''}</p>
+                <div class="request-services">${servicesHtml}</div>
+            </div>
+            <div class="request-footer">
+                <span class="request-date">${new Date(request.created_at).toLocaleDateString()}</span>
+                <div class="group-footer-btn">
+                    ${getStatusClass(request.status) === 'completed' || getStatusClass(request.status) === 'reject' ? 
+                        `<button class="danger-btn" id="delete-request-btn" data-id="${request.id}">
+                            <i class="fas fa-trash"></i> Удалить заявку
+                        </button>` : ''
+                    }
+                    <button class="view-details-btn" data-id="${request.id}">Подробнее</button>
+                </div>
+            </div>
         `;
-        tbody.appendChild(tr);
+        
+        container.appendChild(requestCard);
     });
-    tableEl.appendChild(tbody);
     
-    table.appendChild(tableEl);
-    
-    document.querySelectorAll('.view-details').forEach(btn => {
+    // Добавьте обработчики для кнопок "Подробнее"
+    document.querySelectorAll('.view-details-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const requestId = e.currentTarget.dataset.id;
             showRequestDetails(requestId);
         });
     });
 }
+
+function deleteRequest(requestId) {
+    if (!confirm('Вы уверены, что хотите удалить эту заявку? Это действие нельзя отменить.')) return;
+    
+    fetch(`/adminboard/delete_request/${requestId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Заявка успешно удалена', 'success');
+            loadRequests();
+            document.getElementById('request-details-modal').style.display = 'none';
+        } else {
+            showNotification(data.message || 'Ошибка удаления заявки', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Ошибка удаления заявки', 'error');
+    });
+}
+
+document.addEventListener('click', async function(event) {
+    const deleteBtn = event.target.closest('#delete-request-btn');
+    if (!deleteBtn) return;
+
+    const requestId = deleteBtn.dataset.id;
+    const confirmed = confirm('Вы уверены, что хотите удалить эту заявку?');
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`/adminboard/delete_request/${requestId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            alert('Заявка успешно удалена');
+            deleteBtn.closest('.request-card').remove();
+        } else {
+            alert(data.message || 'Ошибка при удалении заявки');
+        }
+    } catch (error) {
+        console.error('Ошибка при удалении:', error);
+        alert('Произошла ошибка при удалении заявки');
+    }
+});
+
 
 function getStatusClass(status) {
     switch(status) {
@@ -1444,6 +1612,9 @@ function renderUsers(users, roles) {
                 ${role.name !== 'admin' ? 
                     `<button class="${user.is_blocked ? 'unblock-user' : 'block-user'}" data-id="${user.id}">
                         <i class="fas ${user.is_blocked ? 'fa-unlock' : 'fa-lock'}"></i>
+                    </button>
+                    <button class="delete-user" data-id="${user.id}">
+                        <i class="fas fa-trash"></i>
                     </button>` : ''
                 }
             </td>
@@ -1466,6 +1637,35 @@ function renderUsers(users, roles) {
             const isBlock = e.currentTarget.classList.contains('block-user');
             toggleUserBlock(userId, isBlock);
         });
+    });
+
+
+    document.querySelectorAll('.delete-user').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const userId = e.currentTarget.dataset.id;
+            deleteUser(userId);
+        });
+    });
+}
+
+function deleteUser(userId) {
+    if (!confirm('Вы уверены, что хотите удалить этого пользователя? Это действие нельзя отменить.')) return;
+    
+    fetch(`/adminboard/delete_user/${userId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Пользователь удален', 'success');
+            loadUsers();
+        } else {
+            showNotification(data.message || 'Ошибка удаления', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Ошибка удаления пользователя', 'error');
     });
 }
 

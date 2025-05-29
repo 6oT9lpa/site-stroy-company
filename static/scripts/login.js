@@ -28,3 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+document.getElementById('blocked-help').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('blocked-help-modal').style.display = 'flex';
+});
+
+document.querySelector('#blocked-help-modal .cancel-btn').addEventListener('click', function() {
+    document.getElementById('blocked-help-modal').style.display = 'none';
+});
+
+document.querySelector('#blocked-help-modal .close-modal').addEventListener('click', function() {
+    document.getElementById('blocked-help-modal').style.display = 'none';
+});
